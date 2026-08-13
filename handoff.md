@@ -665,3 +665,113 @@ Click through the full flow live once (PIN → ... → reward → wish input, ac
 
 **Next step:**
 Have the user confirm desktop flipping now works. Then: real photos for the album, real sentences for the letter pages, live Formspree test, optional ticket image, and hosting target remain the open items.
+
+## Entry 30 — 2026-08-13 — album→reward handoff reverted from auto-timer to manual button
+
+**Done:**
+- User clarified that Entry 27's problem report ("photo page won't turn") was actually about the album→reward-reveal handoff, not intra-album page flipping (which Entry 29 already fixed) — the automatic timer-driven `onContinue()` call added in Entry 27 wasn't advancing into the reward reveal as expected. Asked to revert that part and use a manual button instead.
+- `PhotoAlbum.tsx`: the auto-flip timer (`AUTO_FLIP_DELAY_MS`, 4.5s after a page's photos finish flying in) now only fires `pageFlip.flipNext()` for pages before the last one — it no longer calls `onContinue()` automatically on the last page. Added a `isLastPage` flag and re-added a "Continue to your surprise →" button (same style/behavior as the original Entry-17-era placeholder link), now shown once the last page's photos have finished flying in, calling `onContinue()` on tap.
+- Auto-flip **between** album pages is unchanged and still timer-driven; only the final album→reward transition changed from automatic to manual.
+- Verified: `tsc --noEmit` clean, dev server (already running from the prior entry) still serves `200` with no console errors after the edit.
+
+**Current state relative to build order:**
+- No step-order change. Step 3 (photo album) — same as Entry 29, plus this handoff-behavior revert. Step 5 (reward reveal) unaffected.
+
+**Unfinished / partial:**
+- Not manually clicked through live to confirm the button appears/works as expected — same standing caveat as before, verified via compile + serve only (plus the Entry 29 Playwright check, which didn't cover this specific button since it predates this change).
+- Same carried-over items as Entry 29 (real photos, real letter sentences, Formspree live-test, ticket image, hosting target).
+
+**Open questions for user (not blocking):**
+- None new — confirm the "Continue to your surprise →" button now shows up and works on the last page.
+
+**Next step:**
+User to confirm the album→reward handoff now works via the button. Then: real photos for the album, real sentences for the letter pages, live Formspree test, optional ticket image, and hosting target remain open.
+
+## Entry 31 — 2026-08-13 — fixed the "Continue to your surprise" button never appearing
+
+**Done:**
+- User reported that even after Entry 30's manual button was added, the album→reward-reveal handoff still didn't work. Investigated with the same real-browser approach as Entry 29 (temporarily reinstalled Playwright, skipped PIN/quiz via a temp debug flag, clicked through) instead of guessing again.
+- **Root cause**: the button from Entry 30 was gated behind `currentPageComplete` (all of the last page's photos having flown in, which is driven by beat detection). Beat detection depends on the browser actually letting the audio autoplay and produce beats — if autoplay is blocked (very common without a prior user gesture) or the song's last section is quiet, `currentPageComplete` can just never become `true`, so the button never rendered at all, with no visible error or feedback.
+- **Fix**: removed the `currentPageComplete` gate — the button now shows as soon as she's on the last page (`isLastPage`), regardless of whether the beat-synced photo entrance has finished. It no longer depends on audio/beat state at all.
+- Verified live via Playwright: flipped to the last page, confirmed the button appeared immediately (not just after a wait), clicked it, and confirmed the reward reveal screen ("Your Surprise" heading) actually rendered next. Removed the debug script/screenshot and the temporary Playwright dev-dependency afterward, reverted the temp PIN/quiz skip in `page.tsx`.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- No step-order change. Step 3 (photo album) — album→reward handoff now confirmed working live for the first time (previous entries were compile/serve-verified only, which is exactly how this bug slipped through twice).
+
+**Unfinished / partial:**
+- Same carried-over items as Entry 30 (real photos, real letter sentences, Formspree live-test, ticket image, hosting target).
+
+**Open questions for user (not blocking):**
+- None — this was confirmed working live before closing out, not just assumed.
+
+**Next step:**
+Real photos for the album, real sentences for the letter pages, live Formspree test, optional ticket image, and hosting target remain the open items.
+
+## Entry 32 — 2026-08-13 — added "song's not over" interstitial before letter pages
+
+**Done:**
+- User asked for a new screen before the letter pages: text "เพลงยังไม่จบเลย เพราะงั้นอ่านต่ออีกนิดนึงนะ" with falling stars in the background. Clarified via questions: it's a new standalone step (wish input → this → letter pages, not replacing wish-input's own end screen), auto-advances after a few seconds (no tap), and uses the ivory background (matching the main site look, not wish-input's dark end screen).
+- **`app/components/SongContinues.tsx`** (new) — reuses the exact falling-star pattern already established in `RewardReveal.tsx` (`.animate-star-fall`, randomized per-star size/duration/delay/drift via `useMemo` so they don't resync), just on the default ivory background instead of behind an opened box. Auto-calls `onContinue` after `AUTO_ADVANCE_MS` (4s) via a `setTimeout` in a `useEffect` — no button, per the user's answer.
+- **`app/page.tsx`** — added `songMessageDone` state and inserted `SongContinues` into the chain between `WishInput` and `LetterPages`.
+- Verified: `tsc --noEmit` clean, dev server (already running) still serves `200` with no console errors.
+
+**Current state relative to build order:**
+- New step added to the flow (renumbered step 7 in `plan.md`; letter pages is now step 8, end-to-end wiring is step 9). Flow is now: PIN → quiz → album → reward → wish input → song's-not-over interstitial → letter pages, fully wired.
+
+**Unfinished / partial:**
+- Not manually clicked through live (compile/serve-verified only this time) — given the last two entries were bugs that only compile/serve verification missed, worth a real click-through at some point, though this component is simple enough (no page-flip, no audio/beat dependency) that the same class of bug is unlikely here.
+- Same carried-over items as Entry 31 (real photos, real letter sentences, Formspree live-test, ticket image, hosting target).
+
+**Open questions for user (not blocking):**
+- Does 4 seconds feel like the right amount of time for this screen, or should it linger longer/shorter?
+- (Carried over) live feedback on the rest of the flow.
+
+**Next step:**
+Real photos for the album, real sentences for the letter pages, live Formspree test, optional ticket image, and hosting target remain the open items.
+
+## Entry 33 — 2026-08-13 — wish-input end screen now auto-advances instead of requiring a tap
+
+**Done:**
+- User asked to change the "Your wish shall be granted" screen from manual-tap to automatic advance into the next step.
+- `WishInput.tsx`: removed the `settled` state and the "Continue →" button entirely. The `setTimeout` that previously flipped `settled` to `true` (revealing the button) now calls `onContinue` directly after `SETTLE_DELAY_MS` (4.2s) — same timing as before, just no tap required.
+- This makes the wish-input step consistent with the "song's not over" interstitial right after it (Entry 32), which also auto-advances — the reward reveal and photo album remain manual-tap by design (per Entries 30/31, since tying advancement to animation/beat completion proved unreliable there).
+- Verified: `tsc --noEmit` clean, dev server still serves `200` with no console errors.
+
+**Current state relative to build order:**
+- No step-order change. Step 6 (wish input) behavior updated only.
+
+**Unfinished / partial:**
+- Not manually clicked through live — compile/serve-verified only. Low risk here since the change is a straightforward `setTimeout` swap with no page-flip/beat-detection involved (the class of bug that bit the last two entries).
+- Same carried-over items as Entry 32 (real photos, real letter sentences, Formspree live-test, ticket image, hosting target).
+
+**Open questions for user (not blocking):**
+- None new.
+
+**Next step:**
+Real photos for the album, real sentences for the letter pages, live Formspree test, optional ticket image, and hosting target remain the open items.
+
+## Entry 34 — 2026-08-13 — added warp-speed transition into the "song's not over" screen
+
+**Done:**
+- User asked for a "warp effect" during the wish-input → song's-not-over transition. Clarified via question: star-streak hyperspace zoom (stars stretch into radiating lines and rocket outward), as opposed to a simple zoom-blur flash or a swirl/vortex.
+- `WishInput.tsx`:
+  - Added `triggerWarp()` — an anime.js timeline that, on each twinkling star, rotates it to point away from screen-center (computed via `atan2` from the star's stored `left`/`top` position), elongates it (`scaleY` 10-18x, `scaleX` 0.35), and translates it further outward along that same direction, fading to 0 opacity — the classic hyperspace-streak look. Runs alongside the "Your wish shall be granted" text zooming/fading out and a radial white/gold flash (new `flashRef` div, same gradient style as `RewardReveal`'s light burst) peaking at the same time.
+  - Before the warp animation starts, each star's looping CSS `.animate-twinkle` is paused (`animationPlayState = "paused"`) — otherwise the CSS keyframe kept overwriting `transform` every frame and fought with anime.js driving the same property, causing jitter.
+  - `onContinue` now fires from the warp timeline's `onComplete` (on the flash animation) instead of directly from the settle `setTimeout` — the timeout now calls `triggerWarp` instead of `onContinue` directly, so the full sequence is: submit → starfield/text reveal → (4.2s) → warp streak + flash (~650ms) → next screen.
+  - TypeScript needed `as any` casts on the three per-star function-value props (`rotate`, `translateX`, `translateY`) — animejs v4's types couldn't cleanly infer a 2-arg per-target callback against the property's union type; runtime behavior is unaffected, this is purely a type-narrowing workaround (documented inline).
+- Verified live (not just compile/serve) via a temporary Playwright script, per the lesson from Entries 29/31: skipped to wish-input, intercepted the real Formspree network call so no actual test email got sent, submitted a wish, and confirmed both "Your wish shall be granted" appeared and — after waiting past the settle + warp durations — the song's-not-over screen rendered next, with no console/page errors. Screenshot confirmed the final screen visually. Removed the debug script/screenshot and the temporary Playwright dependency afterward, reverted the temp flow-skip flags in `page.tsx`.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- No step-order change. Step 6 (wish input) now has the warp transition; confirmed working live end-to-end into step 7.
+
+**Unfinished / partial:**
+- Only tested at one viewport size (1280×900) via automation — worth a look on an actual phone/browser to judge the timing/feel subjectively (that's inherently not something automated testing can judge).
+- Same carried-over items as Entry 33 (real photos, real letter sentences, Formspree live-test on the real endpoint, ticket image, hosting target).
+
+**Open questions for user (not blocking):**
+- Does the warp duration (~650ms) and intensity feel right, or should it be longer/more dramatic?
+
+**Next step:**
+Real photos for the album, real sentences for the letter pages, live Formspree test (on the real endpoint, not the intercepted test one), optional ticket image, and hosting target remain the open items.

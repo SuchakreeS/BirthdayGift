@@ -6,6 +6,7 @@ import QuizScreen from "./components/QuizScreen";
 import PhotoAlbum from "./components/PhotoAlbum";
 import RewardReveal from "./components/RewardReveal";
 import WishInput from "./components/WishInput";
+import SongContinues from "./components/SongContinues";
 import LetterPages from "./components/LetterPages";
 
 export default function Home() {
@@ -14,6 +15,7 @@ export default function Home() {
   const [albumDone, setAlbumDone] = useState(false);
   const [rewardDone, setRewardDone] = useState(false);
   const [wishDone, setWishDone] = useState(false);
+  const [songMessageDone, setSongMessageDone] = useState(false);
 
   if (!unlocked) {
     return <PinScreen onUnlock={() => setUnlocked(true)} />;
@@ -33,6 +35,10 @@ export default function Home() {
 
   if (!wishDone) {
     return <WishInput onContinue={() => setWishDone(true)} />;
+  }
+
+  if (!songMessageDone) {
+    return <SongContinues onContinue={() => setSongMessageDone(true)} />;
   }
 
   return <LetterPages />;

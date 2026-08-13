@@ -210,12 +210,15 @@ export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
     };
   }, []);
 
-  // Hybrid auto-flip. Once the active page's last photo has flown in, wait
-  // AUTO_FLIP_DELAY_MS then advance — to the next page, or to the reward
-  // reveal if this was the last page. Recomputed whenever the active page
-  // or its completion state changes, so a manual swipe (which changes
-  // currentIndex) naturally cancels/reschedules against the new page.
+  // Hybrid auto-flip between pages. Once the active page's last photo has
+  // flown in, wait AUTO_FLIP_DELAY_MS then auto-advance to the next page.
+  // Recomputed whenever the active page or its completion state changes, so
+  // a manual swipe (which changes currentIndex) naturally cancels/reschedules
+  // against the new page. Does NOT apply to the last page — advancing from
+  // the album into the reward reveal is a manual tap (see the button below),
+  // not an automatic timer.
   const currentPage = PAGES[currentIndex];
+  const isLastPage = currentIndex >= PAGES.length - 1;
   const currentVisibleCount = currentPage
     ? Math.min(
         1 + Math.max(0, beatCount - activationBeats[currentIndex]),
@@ -226,17 +229,13 @@ export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
     !!currentPage && currentVisibleCount >= currentPage.photos.length;
 
   useEffect(() => {
-    if (!currentPageComplete) return;
+    if (!currentPageComplete || isLastPage) return;
     const timer = setTimeout(() => {
-      if (currentIndex < PAGES.length - 1) {
-        pageFlipRef.current?.flipNext();
-      } else {
-        onContinue();
-      }
+      pageFlipRef.current?.flipNext();
     }, AUTO_FLIP_DELAY_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPageComplete, currentIndex]);
+  }, [currentPageComplete, currentIndex, isLastPage]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10 animate-rise-in">
@@ -278,6 +277,22 @@ export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
       <p className="font-body text-sm text-ink-soft">
         Swipe or tap the page edge to flip — it also turns on its own
       </p>
+
+      {/* Manual advance out of the album, shown as soon as she's on the last
+          page — deliberately NOT gated on all its photos having flown in
+          (that depends on beat detection, which can stall for good reason:
+          blocked autoplay, a quiet stretch of the song, etc. — the button
+          must never be stuck unreachable because of that). No timer here,
+          she taps when ready. */}
+      {isLastPage && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="animate-soft-reveal font-body text-sm text-gold underline underline-offset-4"
+        >
+          Continue to your surprise →
+        </button>
+      )}
     </div>
   );
 }
