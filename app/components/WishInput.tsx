@@ -8,7 +8,9 @@ const STAR_COUNT = 26;
 // How long the starfield/text plays before the warp transition kicks off.
 const SETTLE_DELAY_MS = 4200;
 // Duration of the warp-speed transition itself, before onContinue fires.
-const WARP_DURATION_MS = 650;
+// 0.75x speed (~1.33x the original 650ms) — matches the shared warp
+// transition's slowed-down pace (see useWarpTransition.tsx) for consistency.
+const WARP_DURATION_MS = 870;
 
 type TwinkleStar = {
   left: number;

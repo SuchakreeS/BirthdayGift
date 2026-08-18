@@ -775,3 +775,168 @@ Real photos for the album, real sentences for the letter pages, live Formspree t
 
 **Next step:**
 Real photos for the album, real sentences for the letter pages, live Formspree test (on the real endpoint, not the intercepted test one), optional ticket image, and hosting target remain the open items.
+
+## Entry 35 — 2026-08-18 — recreated missing source_file/images and source_file/ticket folders
+
+**Done:**
+- User asked what's next; per plan.md's build order the last open content items are real photos, real letter text, and hosting target. User chose to tackle real photos first.
+- Found `source_file/images/` and `source_file/ticket/` missing from disk entirely (only `source_file/Audio/` remained) — contradicts plan.md/handoff.md, which describe them as existing (even if empty) since Entries 7 and 26. Flagged to user rather than guessing why, per this project's ground rules; user asked to just recreate them.
+- Recreated `source_file/images/2022/`, `source_file/images/2023/` (year subfolders per the plan's naming convention), and `source_file/ticket/`. All currently empty.
+- **No app code changed this entry** — folder recovery only.
+
+**Current state relative to build order:**
+- Unchanged from Entry 34 — steps 1-7 built, step 8 (letter pages) has placeholder text, step 9 (polish) pending. Folders for pending content now exist again, still empty.
+
+**Unfinished / partial:**
+- Photos not yet dropped in — waiting on user to populate `source_file/images/2022/`, `2023/` (and any other year folders they add) via File Explorer.
+- Real letter-page sentences, hosting target, ticket image, and live Formspree test on the real endpoint remain open (unchanged from Entry 34).
+
+**Open questions for user (not blocking):**
+- Worth a check of the user's OS/backup history for why these two folders (but not Audio/) disappeared, if it happens again — not investigated this session.
+
+**Next step:**
+Once photos are dropped into `source_file/images/<year>/`, swap them into `PhotoAlbum.tsx`/`YearPage.tsx` in place of the picsum.photos placeholders. Real letter text, hosting target, ticket image, and a real-endpoint Formspree test remain open after that.
+
+## Entry 36 — 2026-08-18 — real photos (2020–2026) wired into the photo album
+
+**Done:**
+- User dropped real photos into `source_file/images/<year>/` for years 2020 through 2026 (1–6 photos each, filenames are camera-assigned numbers like `812419_0.jpg` rather than the `01.jpg`-style convention floated earlier — didn't rename them, just sorted by filename as-is per plan.md's "ordered by filename within each year" rule, which still holds regardless of naming scheme).
+- Copied all seven year folders from `source_file/images/` into `public/images/<year>/` (Next.js only serves files under `public/`, same reasoning as the Entry 18 audio-file move).
+- `PhotoAlbum.tsx`: replaced the `YEARS` placeholder array (picsum.photos, 2 years) with the real 7-year, real-photo array, paths pointing at `/images/<year>/<filename>.jpg`. Removed the now-inaccurate "placeholder photos — real ones swap in later" label text from the rendered page. No changes to `YearPage.tsx`, the collage/scatter-slot logic, chunking/overflow logic, or the beat-sync/auto-flip logic — all of that was already written to be content-agnostic per Entry 17's original design intent.
+- Verified: `tsc --noEmit` shows one pre-existing, unrelated error in `app/layout.tsx` (`Cannot find name 'LayoutProps'`) not touched by this change — confirmed via `git status`/`git diff --stat` that only `PhotoAlbum.tsx` was modified. Started the dev server directly and confirmed `GET /` returns 200 with no console errors, and spot-checked two of the real image URLs (`/images/2020/812413.jpg`, `/images/2026/812453_0.jpg`) both return 200. Stopped the dev server after verification.
+- Updated `plan.md`: removed "photos for the album" from the pending-content checklist (only ticket image and letter-page text remain), marked build-order step 3 as having real photos wired in.
+- **Not done this entry**: did not investigate the pre-existing `LayoutProps` TS error (out of scope, unrelated to this task — flagging so it isn't mistaken for something this change introduced). Did not click through the live album in a browser to eyeball the real-photo collage/pacing.
+
+**Current state relative to build order:**
+- Step 3 (photo album) now has real photos across all 7 years (2020–2026) instead of picsum placeholders. Steps 1, 2, 5 unchanged (done). Step 4 unchanged (basic playback done). Step 6 unchanged (behavior settled per Entries 33–34). Step 7 (song's-not-over) unchanged. Step 8 (letter pages) still has placeholder text.
+- Only two content items remain on the whole plan: real letter-page sentences and the optional ticket image. Hosting target is the one remaining open technical decision.
+
+**Unfinished / partial:**
+- Not visually confirmed live in a browser (only server/HTTP-level verification this entry) — worth a look to see how the real photos read in the collage layout (aspect ratios/crops weren't curated, `object-cover` on a fixed `h-42 w-36` box will crop unevenly depending on each photo's original dimensions).
+- Pre-existing `LayoutProps` TS error in `app/layout.tsx` noticed but not investigated — unrelated to this session's change, flagging in case it matters later.
+- Real letter-page sentences, hosting target, ticket image, and a live Formspree test on the real endpoint remain open (unchanged from Entry 35).
+
+**Open questions for user (not blocking):**
+- How do the real photos actually look in the collage once you try it live — any crops/orientations that look wrong given the fixed portrait photo-box size?
+
+**Next step:**
+Try the album live to sanity-check the real-photo collage. Then: real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
+
+## Entry 37 — 2026-08-18 — fixed photo entrances getting stuck at 1 photo per page
+
+**Done:**
+- User reported some years with 6 photos only ever showed 1. Investigated live instead of guessing (same approach as Entries 29/31/34): temporarily reinstalled Playwright, added a temp `?skip=album` query-param debug flag to `page.tsx` to jump straight past PIN/quiz, flipped through the album, and inspected the DOM directly.
+- **Confirmed root cause**: every page's photo entrance is gated entirely on `beatCount`, which only increments from real-time Web Audio energy-threshold beat detection (Entry 18). If the browser doesn't produce usable beats — autoplay blocked, headless/no audio device, or detection just not firing — `beatCount` never advances, so `visibleCount` stays frozen at 1 forever. `plan.md`'s documented "known limitation" only anticipated losing beat-*sync*, not photos getting stuck unrevealed entirely; this was a real regression against that intent, not a documented tradeoff.
+- **Fix** in `PhotoAlbum.tsx`: added a `FALLBACK_BEAT_MS` (900ms) fallback inside the existing beat-detection `tick()` loop — if no real beat has landed within that window, a synthetic beat fires anyway (`isFallbackBeat`), advancing `beatCount` on a steady pulse. Real beats still take priority and reset the timer whenever they're actually detected; the fallback only kicks in when they're not. This is a small addition to the existing loop, not a new system — no changes to `YearPage.tsx` or the chunking/collage logic.
+- Verified live via the same Playwright script: before the fix, every page capped at 1 visible photo no matter how long it sat active; after the fix, pages given enough active time filled in fully (2022 confirmed 4/4, 2023 5/5, 2024 6/6). Removed the debug script/screenshot and the temporary Playwright dev-dependency afterward; reverted the temp `?skip=album` flag in `page.tsx` (confirmed via `git status` it's no longer in the diff).
+- Verified: dev server restarted clean, `GET /` returns 200 with no console errors in the log.
+
+**Current state relative to build order:**
+- Step 3 (photo album) — real photos (Entry 36) now actually reveal correctly on every page instead of getting stuck at 1. No other step affected.
+
+**Unfinished / partial:**
+- Fallback timing (900ms) is a first-pass guess, not tuned against how the real song's beats land — worth a live listen-through to see if the fallback ever visibly kicks in against real audio (vs. just filling in smoothly on real beats) and whether 900ms feels right if it does.
+- Real letter-page sentences, hosting target, ticket image, and a live Formspree test on the real endpoint remain open (unchanged from Entry 36).
+
+**Open questions for user (not blocking):**
+- Please confirm the album now shows all your photos per year when you try it live.
+
+**Next step:**
+User to confirm the album fully reveals all photos per year now. Then: real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
+
+## Entry 38 — 2026-08-18 — fixed collage overlap; replaced StPageFlip with a warp-transition pager (album + letter pages)
+
+**Done:**
+- User reported two things: with 6 photos on a page, the last one collides with others; and the page-turn animation itself feels buggy. Asked to remove page-turning in favor of a warp animation instead.
+- **Collage overlap** — root-caused directly from the `SLOTS` data in `YearPage.tsx` (no live testing needed to see it): slot indices 2 and 5 sat at nearly identical positions (`top: 6%/0%, left: 68%` both), so the 3rd and 6th photo on any page landed almost fully stacked. First attempted a 3-row x 3-column redesign, but live bounding-box measurement via a temporary Playwright script showed the fixed 168px-tall photo box doesn't leave enough vertical room for 3 rows at typical page heights (row-vs-row overlap persisted). Landed on 2 rows x 4 distinct columns instead (matches the original design's row spacing, which was already proven to fit) — re-measured live and confirmed zero row-vs-row overlap, with only the intentional "slight" same-row adjacent-column overlap remaining (the scrapbook look the plan calls for). Confirmed visually via screenshot too.
+- **Replaced StPageFlip entirely**, per the user's explicit ask and confirmed via clarifying questions: scope is both the photo album and letter pages (not just the album), the warp style reuses the existing hyperspace star-streak + flash effect already built for `WishInput.tsx`'s screen transition (not a new visual design), and navigation is dedicated Back/Next buttons (not tap-anywhere) so she can also go back to a previous year/page, not just forward.
+  - Extracted the warp effect out of `WishInput.tsx` into a new shared hook, **`app/components/useWarpTransition.tsx`** — renders the twinkling-star background + flash overlay, and exposes `warp(onSwap)` to play the star-streak/flash timeline and swap page content via `onSwap` right as the flash peaks, then fades the new content back in and resets the stars for the next warp. `WishInput.tsx` itself was left untouched (its own inline warp logic still works and wasn't asked to change) — the extraction only affects the album/letter pages, which are new consumers of the shared hook.
+  - **`PhotoAlbum.tsx`** rewritten: removed `page-flip` import, `PageFlip` instance, `bookRef`, and the `.photo-page` book markup. Now renders only the *current* page (a fixed-aspect-ratio card, `aspect-300/380` capped at 440px wide — same proportions the book used) inside the warp hook's `contentRef`, with Back/Next buttons below. The existing beat-sync/fallback-pulse photo-entrance logic (Entry 37) and the hybrid auto-advance timer both carry over unchanged — auto-advance now calls the new `goTo()` (which triggers a warp) instead of `pageFlip.flipNext()`. The last-page "Continue to your surprise →" button behavior (Entry 31) is unchanged.
+  - **`LetterPages.tsx`** rewritten the same way: removed `page-flip`, renders the current page's sentences (unchanged stagger/fade-in behavior) inside a matching fixed-aspect card, with Back/Next buttons — no auto-advance here, same as before.
+  - **Removed the `page-flip` npm dependency** entirely (`npm uninstall page-flip`), deleted its now-unused TypeScript shim `app/types/page-flip.d.ts`, and removed the inlined StPageFlip core CSS block (`.stf__parent`/`.stf__block`/`.stf__item`/etc. and `.photo-page`) from `globals.css` — confirmed via `grep` that nothing else in the codebase referenced any of it before deleting.
+- Verified: `tsc --noEmit` clean (also incidentally confirmed a stray `LayoutProps` error seen in Entry 36 was a stale Next.js type-generation artifact, not a real issue — gone after a dev server run, unrelated to this change). Live-verified via a temporarily reinstalled Playwright (same pattern as Entries 29/31/34/37, removed afterward along with the temporary `page.tsx` debug flag): confirmed Back/Next actually swap the visible year/page content in both components, screenshotted both mid-transition to confirm the star/flash/card visuals render correctly against the ivory background, and re-ran the overlap bounding-box check to confirm the new collage slots. `git status` confirms the temp debug flag left no trace in `page.tsx`.
+- **plan.md** updated: Stack section no longer lists `page-flip`; step 3 and step 8's flow descriptions now describe the warp-transition pager instead of StPageFlip; build-order step 3 line updated with both fixes.
+
+**Current state relative to build order:**
+- Step 3 (photo album) and step 8 (letter pages) both now use the warp-transition pager instead of StPageFlip — a real architecture change, not a bug patch, made with the user's explicit sign-off on scope/style/navigation via clarifying questions first. Collage overlap bug is fixed and verified live. No other steps affected.
+
+**Unfinished / partial:**
+- Not tested at a real narrow mobile viewport (only 1280×900 via automation) — the collage's same-row column overlap is somewhat viewport-width-dependent (fixed-pixel photo boxes vs. percentage-based container), worth a look on an actual phone.
+- Warp transition timing (650ms + 400ms fade-in) is carried over as-is from `WishInput.tsx`'s tuned values, not re-tuned for this faster, more-frequent navigation context (she'll trigger it far more often than the one-time wish-input transition) — may feel like it needs to be snappier once tried live at that frequency.
+- Real letter-page sentences, hosting target, ticket image, and a live Formspree test on the real endpoint remain open (unchanged from Entry 37).
+
+**Open questions for user (not blocking):**
+- Does the warp transition feel right at album/letter-page navigation frequency, or does it need to be faster given how often she'll trigger it compared to the one-time wish-input use?
+- Please confirm the collage no longer overlaps and the warp/Back/Next navigation feels good once tried live on your end.
+
+**Next step:**
+User to try the album and letter pages live end-to-end. Then: real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
+
+## Entry 39 — 2026-08-18 — collage rebuilt as a real CSS grid; bigger photos, 3-per-row for 6-photo years
+
+**Done:**
+- User asked for bigger photos, specifically so 6-photo years show 3 per row.
+- Replaced `YearPage.tsx`'s hand-placed absolute `SLOTS` array (a source of the overlap bugs fixed in Entries 38/39) with an actual CSS grid (`grid-cols-3`) — cells can't overlap by construction, and each photo now sizes off its grid cell (`aspect-3/4 w-full`) instead of a fixed 168px pixel box, so it scales with however much room the page card has rather than a hardcoded size. Rotation per photo (reused the existing tilt values) keeps the scrapbook feel even though positions are now a tidy grid.
+- Widened the album's page card (`PhotoAlbum.tsx`) from a 440px cap to a 560px cap so the wider grid has real room — same aspect ratio as before (300/380), just scaled up.
+- Note: this moves away from `plan.md`'s original "scattered/collage... not a uniform grid" description (Entry 15) — the user's explicit ask this session (3-per-row) is inherently more grid-like than that spec, so `plan.md`'s step 3 description was updated to match what was actually asked for and built, rather than left contradicting the code.
+- Verified live via a temporarily reinstalled Playwright (removed after, same pattern as recent entries; temp `page.tsx` debug flag reverted, confirmed absent via `git status`): navigated to the 2024 page (6 real photos) and measured actual rendered photo boxes — grew from the old fixed 144x168px to ~180-187px wide x ~230px tall, arranged exactly 3-per-row x 2 rows as asked. Two adjacent pairs showed a ~2px bounding-box overlap, traced to the rotation transform's corner poking slightly past the cell edge — visually negligible (vs. the 30-150px near-total overlaps fixed in Entry 38) and confirmed as fine via a screenshot. `tsc --noEmit` clean, dev server serves 200 with no console errors.
+- Updated `plan.md`'s step 3 description (grid-based layout, new 560px width cap) to match.
+
+**Current state relative to build order:**
+- Step 3 (photo album) — collage layout rebuilt as a grid; bigger, cleanly-arranged photos confirmed live. No other steps affected (letter pages don't use a photo grid, untouched this entry).
+
+**Unfinished / partial:**
+- Only checked at one desktop viewport (1280x900) — worth a look on an actual phone to see how the grid reflows at narrow widths (photos should shrink to fit 3 columns, per the relative sizing, but not visually confirmed at small widths).
+- Real letter-page sentences, hosting target, ticket image, and a live Formspree test on the real endpoint remain open (unchanged from Entry 38).
+
+**Open questions for user (not blocking):**
+- Please confirm the bigger 3-per-row grid looks/feels right once tried live, especially on your phone.
+
+**Next step:**
+User to confirm the new grid layout live, ideally on mobile. Then: real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
+
+## Entry 40 — 2026-08-18 — slowed warp transition to 0.75x speed; song no longer loops
+
+**Done:**
+- User asked for two things: the transition effect a little slower (~0.75x speed), and the song to start from the same point but play through to its natural end instead of looping.
+- **Warp transition speed**: `useWarpTransition.tsx`'s `WARP_DURATION_MS` (the shared hook used by the photo album and letter pages) went from 650ms to 870ms (650 / 0.75 ≈ 867, rounded), and its post-warp fade-back-in duration scaled proportionally (400ms → 530ms). Also updated `WishInput.tsx`'s own separate `WARP_DURATION_MS` constant (its warp-into-song-continues transition uses the same visual effect but predates the shared hook, so it's a separate copy) to the same 870ms, for consistency — the user's ask didn't specify scope, but since it's visually the same effect, leaving one faster than the other would read as a mistake rather than a deliberate choice. Flagging this scope call in case only the album/letters transition was meant.
+- **Song looping**: removed the `loop` attribute from the `<audio>` element in `PhotoAlbum.tsx`. It still starts playing from the beginning the same way it always has (autoplay attempt on album mount, unchanged) — the only change is that once it reaches the end, it now stops naturally instead of restarting from 0. No changes needed to the beat-detection logic: the existing fallback-pulse (Entry 37) already covers the case where the song has ended and produces silence, so photo entrances keep advancing even after the song stops.
+- Verified: `tsc --noEmit` clean, dev server serves 200 with no console errors.
+
+**Current state relative to build order:**
+- No step-order change. Step 3 (photo album, music) and step 6 (wish input) both have the updated warp timing; step 4 (music) no longer loops.
+
+**Unfinished / partial:**
+- Not manually clicked through live this entry (compile/serve-verified only) — low risk, this is a straightforward constant-value change with no logic restructuring, but worth a real listen/watch to confirm 0.75x actually feels like "a little slower" as intended rather than over/under-corrected.
+- Real letter-page sentences, hosting target, ticket image, and a live Formspree test on the real endpoint remain open (unchanged from Entry 39).
+
+**Open questions for user (not blocking):**
+- Was the warp-speed slowdown meant for the album/letter-page transitions only, or also the wish-input → song-continues warp? Applied to both for visual consistency — say if you wanted just the former.
+- Does 0.75x feel like the right amount of "a little slower," or does it need further adjustment?
+
+**Next step:**
+User to confirm the new transition pace and non-looping song live. Then: real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
+
+## Entry 41 — 2026-08-18 — song now persists across the whole site, not just the album
+
+**Done:**
+- User clarified Entry 40's "keeps playing until the end" meant the end of the whole website, not just not-looping within the album — the song was still cutting off the moment she left the album, since the `<audio>` element and its beat-detection lived inside `PhotoAlbum.tsx` and unmounted along with it.
+- Built **`app/components/MusicProvider.tsx`** — a new context provider that owns the `<audio>` element, its `AudioContext`/`AnalyserNode` setup, and the energy-threshold beat detection (including the fallback pulse from Entry 37), moved verbatim out of `PhotoAlbum.tsx`. Exposes the live beat count via a `useMusicBeat()` hook for any step that wants it (currently only the album, for its photo entrances).
+- **`PhotoAlbum.tsx`**: removed its own `<audio>` element, `AudioContext`/analyser setup, and beat-detection effect entirely — now just calls `useMusicBeat()` to read the shared beat count. Its own beat-driven entrance/auto-advance logic is otherwise unchanged.
+- **`page.tsx`**: restructured from a chain of early-return `if` statements (each of which fully unmounted the previous step, including whatever it rendered) into a single `MusicProvider` wrapping every step from the album onward, with the actual step chosen by conditional rendering inside it. Since `MusicProvider` itself never unmounts once she reaches the album, the one `<audio>` element it owns survives every subsequent step change — reward reveal, wish input, song's-not-over, letter pages — playing continuously start to finish (or until she reaches the last screen, whichever comes first, since it no longer loops per Entry 40).
+- Verified live (not just compile) via a temporarily reinstalled Playwright, launched with `--autoplay-policy=no-user-gesture-required` so headless Chromium would actually play audio: tagged the `<audio>` DOM node on load, then clicked through the album's last page into the reward reveal and confirmed (a) the tagged node identity never changed — same element the whole way, not remounted — and (b) `currentTime` climbed continuously across the transition (1.4s → 3.4s → 12.8s → 15.9s) with `paused: false` throughout, i.e. actual uninterrupted playback, not just a plausible-looking DOM structure. Removed the debug script and the temporary Playwright dependency afterward; reverted the temp `page.tsx` debug flag used to skip PIN/quiz for the test (confirmed via `git diff app/page.tsx` that only the real `MusicProvider` restructuring remains).
+- Verified: `tsc --noEmit` clean, dev server serves 200 with no console errors.
+- Updated `plan.md`'s step 4 description to document the new persistence behavior and where it lives.
+
+**Current state relative to build order:**
+- No step-order change. Step 4 (music) now actually matches "plays in the background" for the whole rest of the site, not just the album. Step 3 (photo album) unaffected behaviorally — same beat-sync entrance logic, just sourced from context instead of owning the audio itself.
+
+**Unfinished / partial:**
+- Only verified the album→reward-reveal handoff live; didn't click all the way through wish input → song's-not-over → letter pages in this session, though the mechanism (MusicProvider never unmounting) applies identically to all of them.
+- Real letter-page sentences, hosting target, ticket image, and a live Formspree test on the real endpoint remain open (unchanged from Entry 40).
+
+**Open questions for user (not blocking):**
+- None new — this was confirmed working live (actual playback continuity, not just structural) before closing out.
+
+**Next step:**
+Real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
