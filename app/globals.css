@@ -147,3 +147,87 @@ body {
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
+
+@keyframes balloon-float {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-118vh) translateX(var(--drift, 0px));
+    opacity: 0;
+  }
+}
+
+.animate-balloon-float {
+  animation-name: balloon-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes banner-sway {
+  0%,
+  100% {
+    transform: rotate(-1.4deg);
+  }
+  50% {
+    transform: rotate(1.4deg);
+  }
+}
+
+.animate-banner-sway {
+  animation: banner-sway 4.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@keyframes walk-closer {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  16% {
+    transform: scale(1.25) translateY(-1.2%);
+  }
+  32% {
+    transform: scale(1.55) translateY(0.6%);
+  }
+  48% {
+    transform: scale(1.9) translateY(-1.2%);
+  }
+  64% {
+    transform: scale(2.25) translateY(0.6%);
+  }
+  82% {
+    transform: scale(2.6) translateY(-0.6%);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3) translateY(0);
+    opacity: 0;
+  }
+}
+
+.animate-walk-closer {
+  animation: walk-closer 2.2s ease-in-out both;
+  transform-origin: 50% 32%;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2.2s ease-in-out infinite;
+}

@@ -940,3 +940,182 @@ User to confirm the new transition pace and non-looping song live. Then: real le
 
 **Next step:**
 Real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain the open items.
+
+## Entry 42 — 2026-08-20 — quiz question order randomized too
+
+**Done:**
+- User asked for the quiz's question order (not just each question's choice order) to be randomized as well.
+- `app/components/QuizScreen.tsx`: added a shuffled `order` array (indices into `QUESTIONS`, shuffled once via `useState(() => shuffle(...))` on mount) and changed `question` to look up `QUESTIONS[order[index]]` instead of `QUESTIONS[index]` directly. Progress/advance logic (`index`, `QUESTIONS.length`) is unchanged since `order` has the same length — just the mapping from position to actual question changed.
+- Updated `plan.md`'s step 2 description: now says both question order and choice order are randomized per load, not just choice order.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- No step-order change — step 2 (quiz) still done, just with fuller randomization matching the request.
+
+**Unfinished / partial:**
+- Not manually click-tested live in a browser this entry (compile-only verification), consistent with most other quiz-adjacent entries.
+
+**Open questions for user (not blocking):**
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test on the real endpoint.
+
+**Next step:**
+Same open items as Entry 41 — real letter-page sentences, hosting target, optional ticket image, and a live Formspree test remain.
+
+## Entry 43 — 2026-08-20 — new landing page (before PIN) built
+
+**Done:**
+- User asked for a new first screen before the PIN lock: a bunting-style "HAPPY BIRTHDAY / my BELOVED" banner hanging from the top, balloons floating in the background, a bottom instruction, and a "walking closer to the sign" click-to-enter transition. Clarified three open decisions via questions before building (recorded in `plan.md`): instruction language (Thai), balloon colors (theme palette, not festive multicolor), and transition style (zoom/dolly forward, not the drift variant) — then confirmed the exact Thai instruction copy: "แตะที่ไหนก็ได้เพื่อเข้าไป".
+- Added a new **Flow step 0** to `plan.md` ahead of the existing numbered steps (didn't renumber steps 1-8 to avoid rewriting every historical handoff reference to "step N" — step 0 sits before step 1 in both the flow list and the build order), plus a new "Landing page copy" / "Landing page style decisions" line in Confirmed content.
+- Built `app/components/LandingScreen.tsx`: two rows of hand-tuned bunting flags (rope line + hanging flags, one per letter, alternating wine/gold/blush per the theme palette, `Cormorant Garamond` display font) for "HAPPY BIRTHDAY" and "my BELOVED", a fixed (non-random, to avoid SSR/hydration mismatch) array of 10 balloons in theme colors floating upward on a loop with varied delay/duration/drift, and the bottom Thai instruction with a soft pulse. Whole scene swings gently (`animate-banner-sway`). Clicking/tapping anywhere sets a `transitioning` flag that applies `animate-walk-closer` (scale up toward the banner + fade out, ~1.1s) to the whole scene, then calls `onEnter` after the animation duration via `setTimeout`.
+- Added new keyframes/classes to `globals.css`: `balloon-float`, `banner-sway`, `walk-closer`, `pulse-soft`.
+- Wired into `app/page.tsx`: new `entered` state gates `LandingScreen` before the existing `unlocked`/`PinScreen` gate — flow is now Landing → PIN → quiz → ... unchanged from there.
+- Verified: `tsc --noEmit` clean, existing dev server (already running from a prior session, port 3000) picked up the changes and recompiled with no errors in `.next/dev/logs/next-development.log`; homepage returned 200. Killed a redundant second dev server instance I accidentally started on port 3001 during verification (not a real issue, just cleanup).
+- **Not yet visually confirmed live** — same standing caveat as most other animation-heavy builds in this log (compile + code review only, no manual click-through by me).
+
+**Current state relative to build order:**
+- New step 0 (landing page) — done, sits before step 1 (PIN). Steps 1 onward unchanged.
+
+**Unfinished / partial:**
+- Not manually click-tested in a live browser (transition timing/feel, balloon spacing, bunting readability at various viewport widths).
+- Balloon count/positions and bunting flag sizing are first-pass guesses — easy to tune once seen live.
+
+**Open questions for user (not blocking):**
+- Does the "walking closer" zoom transition feel right (speed/scale amount), and does the bunting-flag banner style match what you pictured versus a single hanging sign board?
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test.
+
+**Next step:**
+User to try the new landing page live and give feedback on pacing/style. Otherwise same open items as Entry 42 remain: real letter-page sentences, hosting target, optional ticket image, live Formspree test.
+
+## Entry 44 — 2026-08-20 — landing page transition slowed + given a stepping feel
+
+**Done:**
+- User confirmed the landing page click-through works, then asked for two tweaks: slow the "walking closer" transition to 0.5x speed, and make it feel like actual stepping rather than one smooth continuous zoom.
+- `globals.css`: `walk-closer` keyframe duration doubled (1.1s → 2.2s, matches 0.5x) and rebuilt with more stops — scale now advances in a few uneven jumps (1 → 1.25 → 1.55 → 1.9 → 2.25 → 2.6 → 3) each paired with a small alternating `translateY` bob (up on the "lift", down on the "landing"), so the forward motion reads as a few footsteps rather than a single continuous dolly-in. Switched the animation's overall timing function from a custom cubic-bezier to `ease-in-out` since the stepping rhythm now comes from the keyframe stops themselves.
+- `LandingScreen.tsx`: bumped the `setTimeout` before calling `onEnter` from 1100ms to 2200ms to match the new duration, so the PIN screen still swaps in exactly when the transition animation finishes.
+- Verified: `tsc --noEmit` clean.
+- Not yet re-confirmed live by the user with the new pacing/stepping feel — worth a quick look.
+
+**Current state relative to build order:**
+- Unchanged — step 0 (landing page) still done, just with a slower/steppier transition per this round of feedback.
+
+**Unfinished / partial:**
+- Not manually click-tested live by me this entry (compile-only verification, consistent with the animation-tuning pattern elsewhere in this log).
+
+**Open questions for user (not blocking):**
+- Does the new stepping rhythm/speed feel right, or does it need further tuning (step count, bob amount, overall duration)?
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test.
+
+**Next step:**
+User to try the updated transition live. Otherwise same open items as Entry 43 remain.
+
+## Entry 45 — 2026-08-20 — trust-check interstitial added between PIN and quiz
+
+**Done:**
+- User asked for a new brief screen right after the PIN unlocks, before the quiz: two lines of Thai text ("แต่ เราจะแน่ใจได้ยังไงว่าเป็นเทอจริง" then "ลองตอบคำถามมาก่อนนะ") that auto-advance into the quiz after a short delay.
+- Built `app/components/TrustCheck.tsx`, modeled on the existing `SongContinues.tsx` auto-advance interstitial pattern: first line rises in immediately (`animate-rise-in` on the container), second line fades in staggered via the existing `animate-soft-reveal` class with a 0.6s delay, then a `setTimeout` calls `onContinue` after 3000ms (picked as a reasonable "short delay" default, consistent with the ~4s used by the song-continues interstitial — easy to tune if it feels off). No falling-star background this time (kept it plain/text-only) since nothing in the request called for it and it's simpler.
+- Wired into `app/page.tsx`: new `trustChecked` state gates `TrustCheck` between the existing `unlocked` (PIN) and `quizDone` (quiz) gates. Flow is now Landing → PIN → trust-check → quiz → ...
+- Updated `plan.md`: added a new "1.5" flow step and build-order line (kept the half-step numbering rather than renumbering 2-8, same approach used for the step-0 landing page addition in Entry 43, to avoid rewriting every historical "step N" reference in this log).
+- Verified: `tsc --noEmit` clean.
+- Not yet visually confirmed live by me.
+
+**Current state relative to build order:**
+- New step 1.5 (trust-check interstitial) — done, sits between PIN (step 1) and quiz (step 2). All other steps unchanged.
+
+**Unfinished / partial:**
+- Not manually click-tested live (compile-only verification).
+- The 3s delay is a first-pass guess, not confirmed by the user — flag if it feels too fast/slow once tried.
+
+**Open questions for user (not blocking):**
+- Does 3s feel like the right "short delay," or should it be longer/shorter?
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test.
+
+**Next step:**
+User to try the new interstitial live (PIN → trust-check → quiz) and confirm timing/copy read right. Otherwise same open items as Entry 44 remain.
+
+## Entry 46 — 2026-08-20 — quiz content updated from Questions.md
+
+**Done:**
+- User updated `Questions.md` (Q2 and Q3 changed to new questions/options/answers; Q1 unchanged). Asked to pull the current content into the built quiz.
+- `app/components/QuizScreen.tsx`: replaced the hardcoded Q2 ("จูบแรกเกิดขึ้นที่ไหนนนน") and Q3 ("บุคคลแรกที่รู้เรื่องตอนเริ่มคบกันคืออออ") entries in `QUESTIONS` with the current `Questions.md` content — Q2 is now "วันที่ 24 กันยายน เป็นวันอะไรนะะะะะ" (correct: วันเกิดของคนพิเศษ), Q3 is now "ของขวัญวันเกิดชิ้นแรกที่เราเคยให้เทอคืออะไรรรร" (correct: สร้อยข้อมือทำเอง). Q1 left as-is (unchanged in the source file). Question/choice shuffling logic (Entry 42) is untouched — applies to whatever's in the array.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- Unchanged — step 2 (quiz) still done, just with content synced to the latest `Questions.md`.
+
+**Unfinished / partial:**
+- Nothing partial — straightforward content sync, no logic changed.
+
+**Open questions for user (not blocking):**
+- None new. (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test, feedback on the trust-check delay and landing-page transition from Entries 44-45.
+
+**Next step:**
+Same open items as Entry 45 — real letter-page sentences, hosting target, optional ticket image, live Formspree test.
+
+## Entry 47 — 2026-08-20 — fixed silent song (AudioContext never resumed)
+
+**Done:**
+- User reported the song wasn't playing. Root cause found in `MusicProvider.tsx`: `createMediaElementSource` routes the `<audio>` element's actual sound output through the Web Audio graph (needed for beat detection), and a freshly-created `AudioContext` starts in the `"suspended"` state — it doesn't produce audible sound until something explicitly resumes it. `audioEl.play()` was succeeding with no error and `currentTime` was advancing normally, so this failed completely silently (literally). The context never got resumed because `MusicProvider` mounts from inside a `setTimeout` callback (the quiz's correct-answer delay), which the browser doesn't treat as gesture-driven the way a direct click handler would — so the usual "user already interacted with the page" allowance didn't reliably apply to the context.
+- Fix in `MusicProvider.tsx`: cached the `AudioContext` in a new `audioCtxRef` (alongside the existing `analyserRef`), call `audioCtx.resume()` right away alongside `audioEl.play()`, and added a `pointerdown` listener on `document` as a fallback that retries both resume+play on the next real tap/click anywhere on the page (there are several coming up right after — quiz options, reward box, wish input) so it self-heals even if the very first attempt is blocked. Listener removes itself once the context is confirmed running and the audio isn't paused, and is also cleaned up on unmount.
+- Verified this wasn't just a plausible theory: temporarily reinstalled Playwright (same approach as Entry 41), launched headless Chromium with `--autoplay-policy=no-user-gesture-required`, wrapped `window.AudioContext` in an init script to capture every instance created, then scripted a full click-through — landing page tap → PIN `0803` → trust-check wait → all 3 quiz questions (matched buttons by known correct-answer text since order is shuffled) → into the album. Captured state showed `contextStates: ["running"]` (not `"suspended"`) and `audio.currentTime` climbing continuously (3.2s → 5.2s) with `paused: false` — confirming the context is actually running and producing sound, not just silently ticking forward like before the fix. Removed the temporary Playwright dependency and test script afterward.
+- Verified: `tsc --noEmit` clean.
+- Noticed `app/components/PinScreen.tsx` has an uncommitted change (title/subtitle text swapped to Thai) that wasn't made by me this session — left untouched, out of scope for this task.
+
+**Current state relative to build order:**
+- Unchanged — step 4 (music) still "basic playback done," now with the actual silent-audio bug fixed rather than just autoplay-block handled. No other steps affected.
+
+**Unfinished / partial:**
+- Verified in headless Chromium with autoplay forced on via a launch flag, not a real end-user browser session — the underlying fix (explicit `resume()` + gesture-triggered retry) is the standard mitigation for this exact class of bug, but worth a real-device confirmation with sound on next time it's convenient.
+
+**Open questions for user (not blocking):**
+- Please confirm you can actually hear the song now on a real browser/device.
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test, feedback on the trust-check delay/landing transition.
+
+**Next step:**
+User to confirm audio is now audible. Otherwise same open items as Entry 46 remain.
+
+## Entry 48 — 2026-08-20 — album intro screen added after the quiz
+
+**Done:**
+- User asked for a new screen right after the quiz is passed, before the photo album: text "ใช่จริงๆด้วย อ้วนมาเร็ววว เรามีอะไรให้ดู" with a button "กดเพื่อเดินเข้าไป" that, on tap, transitions using the same effect as the landing page's "walking closer" transition.
+- Built `app/components/AlbumIntro.tsx`: centered text + button, styled to match existing button conventions (gold border, wine-deep text, blush hover — same family as the album's other CTAs). On click, applies the existing `animate-walk-closer` class (same keyframe/timing introduced for `LandingScreen` in Entries 43-44, no new CSS needed) to the text+button group, then calls `onContinue` after the same 2200ms the animation takes, matching `LandingScreen`'s pattern exactly.
+- Wired into `app/page.tsx`: new `introDone` state gates `AlbumIntro` between the existing `quizDone` (quiz) and the `MusicProvider`/`PhotoAlbum` block. Flow is now Landing → PIN → trust-check → quiz → album-intro → album → ...
+- Updated `plan.md`: added a "2.5" flow step and build-order line (same half-step numbering convention as the 1.5/0 additions in Entries 43/45, to avoid renumbering every step reference in this log).
+- Verified: `tsc --noEmit` clean.
+- Note: since `MusicProvider` now mounts right after a genuine button click on this new screen (rather than out of a quiz-timeout, per Entry 47's root cause), the audio context resume should actually have a cleaner shot at succeeding on the first try here too — not verified live this entry, but worth knowing the fallback listener from Entry 47 has less to compensate for now.
+
+**Current state relative to build order:**
+- New step 2.5 (album intro) — done, sits between quiz (step 2) and photo album (step 3). All other steps unchanged.
+
+**Unfinished / partial:**
+- Not manually click-tested live (compile-only verification, consistent with most other new-screen entries in this log).
+
+**Open questions for user (not blocking):**
+- Does the walk-closer transition feel right reused here (same 2.2s stepping pace as the landing page), or should this one be tuned differently?
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test, confirmation the song is now audible (Entry 47).
+
+**Next step:**
+User to try the new album-intro screen live. Otherwise same open items as Entry 47 remain.
+
+## Entry 49 — 2026-08-20 — album reveal screen added between AlbumIntro and the photo album
+
+**Done:**
+- User asked for a new screen after AlbumIntro, before the actual photo album: text "คุณได้รับอัลบัม" shows first, then after a 3s delay an album image + instruction "กดเพื่อเปิดอัลบัม" fade in below it, and tapping anywhere transitions into the photo album.
+- Clarified two open decisions via questions before building: (1) no source image exists for "the album" — user chose to have one designed rather than provide a file, so it's a CSS/SVG graphic (wine cover, gold border, reusing the existing `Seal.tsx` infinity-knot as the cover emblem), same approach as the reward reveal's present box; (2) which transition to use — user didn't want the walk-closer effect reused a third time, and asked for it to feel "like the year transitioning" instead, meaning the shared warp-speed transition (`useWarpTransition`) already used for the photo album's year-to-year page flips, WishInput, and LetterPages.
+- Built `app/components/AlbumReveal.tsx`: `คุณได้รับอัลบัม` rises in immediately; a `setTimeout` (3000ms) reveals the album graphic + instruction via the existing `animate-soft-reveal`/`animate-pulse-soft` classes; clicking anywhere once revealed calls `warp(onContinue)` from `useWarpTransition` (same hook/pattern as `LetterPages.tsx`'s page navigation) rather than the `animate-walk-closer` effect used on the landing page and AlbumIntro.
+- Wired into `app/page.tsx`: new `albumRevealed` state gates `AlbumReveal` between `introDone` (AlbumIntro) and the `MusicProvider`/`PhotoAlbum` block. Flow is now Landing → PIN → trust-check → quiz → album-intro → album-reveal → album → ... `MusicProvider` still only mounts once the real album starts, unchanged from before — this reveal screen has no audio of its own, matching the existing "music starts when the album opens" spec.
+- Updated `plan.md`: added a "2.75" flow step and build-order line (same half-step numbering convention as the 0/1.5/2.5 additions in Entries 43/45/48).
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- New step 2.75 (album reveal) — done, sits between album intro (2.5) and the photo album (3). All other steps unchanged.
+
+**Unfinished / partial:**
+- Not manually click-tested live (compile-only verification, consistent with most other new-screen entries in this log).
+- The album graphic is a first-pass CSS/SVG design (reusing the Seal component on a wine card) — easy to restyle or swap for a real image later if wanted, same as the reward ticket's evolution.
+
+**Open questions for user (not blocking):**
+- Does the album graphic read well as "an album," or would you rather it look more distinct from the reward reveal's present box?
+- (Carried over) real letter-page sentences, hosting target, optional ticket image, live Formspree test, confirmation the song is now audible (Entry 47), feedback on the album-intro walk-closer reuse (Entry 48).
+
+**Next step:**
+User to try the new album-reveal screen live. Otherwise same open items as Entry 48 remain.

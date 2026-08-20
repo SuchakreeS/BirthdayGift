@@ -15,14 +15,14 @@ const QUESTIONS: Question[] = [
     correctAnswer: "เพชรบุรี",
   },
   {
-    question: "จูบแรกเกิดขึ้นที่ไหนนนน",
-    options: ["เพชรบุรี", "หัวหิน", "จันท", "ที่ไหนก็ได้ โตแล้ว"],
-    correctAnswer: "จันท",
+    question: "วันที่ 24 กันยายน เป็นวันอะไรนะะะะะ",
+    options: ["วันพฤหัส", "วันอาทิตย์", "วันเกิดของคนพิเศษ", "วันธรรมดา"],
+    correctAnswer: "วันเกิดของคนพิเศษ",
   },
   {
-    question: "บุคคลแรกที่รู้เรื่องตอนเริ่มคบกันคืออออ",
-    options: ["น้ำทิพย์ (สาระแนนักนะ)", "เปีย", "จิว", "น้ำหวาน"],
-    correctAnswer: "น้ำทิพย์ (สาระแนนักนะ)",
+    question: "ของขวัญวันเกิดชิ้นแรกที่เราเคยให้เทอคืออะไรรรร",
+    options: ["สร้อยข้อมือทำเอง", "ตุ๊กตาน่าร้ากกก", "ดอกกุหลาบสวยๆ", "พาไปเที่ยวแบบเริ่ดๆเลยล่ะ"],
+    correctAnswer: "สร้อยข้อมือทำเอง",
   },
 ];
 
@@ -36,12 +36,13 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function QuizScreen({ onComplete }: { onComplete: () => void }) {
+  const [order] = useState<number[]>(() => shuffle(QUESTIONS.map((_, i) => i)));
   const [index, setIndex] = useState(0);
   const [choices, setChoices] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const question = QUESTIONS[index];
+  const question = QUESTIONS[order[index]];
 
   useEffect(() => {
     setChoices(shuffle(question.options));
