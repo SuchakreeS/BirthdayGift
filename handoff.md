@@ -1119,3 +1119,242 @@ User to try the new album-intro screen live. Otherwise same open items as Entry 
 
 **Next step:**
 User to try the new album-reveal screen live. Otherwise same open items as Entry 48 remain.
+
+## Entry 50 — 2026-08-29 — swapped reward reveal's CSS box/ticket for a real 3D model
+
+**Done:**
+- User dropped `source_file/Untitled.glb` — a Blender-authored gift box with the lid already opened and a ticket floating out — and asked to swap it in for the CSS box/ticket in `RewardReveal.tsx`. This wasn't covered by `plan.md`, so before touching anything asked two clarifying questions per this project's ground rules: (1) rendering approach — chose `@react-three/fiber` + `@react-three/drei` (React-idiomatic, full control over timing) over `<model-viewer>`; (2) how to show the "บัตรตามใจ" ticket text since the model's ticket mesh has no baked texture — chose an HTML overlay timed to the model's animation, over re-exporting the `.glb` with baked text.
+- Inspected the `.glb` directly (parsed its glTF JSON/BIN chunks with a throwaway node script, not opened in Blender) before deciding anything: it already has three baked animation clips — `GiftBox_LidAction` (lid rises open), `Ticket_BorderAction` and `Ticket_CardAction` (ticket rises + scales + spins), running ~3.96s total — and materials named `Gold_Ribbon`/`WineDeep`/`Gold_Border`/`Ivory` that already match this project's design tokens. This meant the model could fully replace the old animejs box-open/spin timeline, not just the static geometry.
+- Copied the model to `public/models/reward-box.glb` (kept the original at `source_file/Untitled.glb` too, following the same copy-not-move convention used for the song/photos in Entries 17–18 — briefly deleted the source copy by mistake while cleaning up, caught it immediately since an identical copy still existed in `public/`, and restored it before finishing).
+- Installed `three`, `@react-three/fiber`, `@react-three/drei`, `@types/three` (confirmed React 19 compatible via `npm ls`).
+- Built `app/components/RewardBox3D.tsx`: a `<Canvas>` wrapping the loaded `.glb` scene (`useGLTF` + `useAnimations` from drei), plays all three baked clips together once on `playing=true` (i.e. once she taps), `clampWhenFinished` so it holds on the open/settled pose rather than snapping back. Exports `REWARD_BOX_ANIMATION_MS` (3960, read directly from the clips' keyframe times) so `RewardReveal.tsx` can time everything else off one real number instead of a guessed constant.
+- Rewrote `app/components/RewardReveal.tsx`: removed the CSS box/lid/ticket divs, the glitter-particle spans, and the animejs timeline stages that drove them (lid rotate, ticket rotateY spin, glitter stagger) — that sequence now lives in the model's own clips. Kept the 2D light-burst flash (still animejs, still fires on tap) and the ambient falling-stars background (unchanged CSS). Added the ticket text back as an HTML overlay, faded in (`animate-soft-reveal`) at `REWARD_BOX_ANIMATION_MS - 300`, positioned at `top-[38%]` of the scene container — a first-pass guess based on the model's final ticket Y-translation relative to the camera, not yet confirmed live. The tap target is now a full-area invisible button over the whole 3D scene (previously just over the box shape). "Continue →" now appears at `REWARD_BOX_ANIMATION_MS + 250`.
+- Updated `plan.md`: Stack section now lists three.js/`@react-three/fiber`/`@react-three/drei` and clarifies animejs's remaining scope; Asset locations section documents the `.glb` and its supersession of the old "ticket as an image" plan item; step 5's flow description rewritten around the 3D model + text-overlay approach; build-order line 5 updated to flag the swap as not yet live-verified.
+- Verified: `tsc --noEmit` clean, dev server compiles and serves the homepage (PIN screen) with no console errors. **Not verified**: an actual click-through of the reward reveal screen itself (would require walking PIN → quiz → album → reward each time) — so the 3D model's camera framing, the ticket text overlay's `top-[38%]` position, and overall visual balance are unconfirmed guesses, same caveat pattern as the original CSS version's early entries (21–24).
+
+**Current state relative to build order:**
+- Step 5 (reward reveal) — box/ticket visuals now come from the real 3D model instead of CSS; mechanically still "tap to open → reveal → Continue" as before. Everything else unchanged from Entry 49.
+
+**Unfinished / partial:**
+- Camera framing/scale of the 3D scene and the ticket-text overlay position are untested guesses — need a live look to confirm the box isn't cropped/too small and the text lands over (not beside) the floating ticket.
+- Same carried-over open items as prior entries: photo album auto-flip/overflow polish, real letter-page sentences, hosting target, optional ticket image (now superseded for the 3D geometry, but the plain-image approach could still apply if the 3D swap doesn't land well), live Formspree test.
+
+**Open questions for user (not blocking):**
+- Does the 3D box look right on screen — sized/framed well, ticket text landing in the right spot? Easy to nudge `RewardBox3D.tsx`'s camera position/fov or `RewardReveal.tsx`'s `top-[38%]` once you've seen it.
+- (Carried over) hosting target, real letter-page sentences, live Formspree test.
+
+**Next step:**
+User to try the reward reveal live and report back on framing/positioning. Then: same outstanding items as before (step 3 completion logic, real photos/letter content, hosting target).
+
+## Entry 51 — 2026-08-29 — fixed cropped box + missing box-body material (from live screenshot)
+
+**Done:**
+- User sent a screenshot of the reward reveal: the box body rendered plain white instead of wine-colored, and the open lid was cropped off the top of the frame.
+- Re-parsed the `.glb`'s glTF JSON to find the actual cause rather than guessing: the box-body mesh ("GiftBox_Body") has no material assigned in the export at all (`primitives[0].material` is `undefined`) — three.js/GLTFLoader silently falls back to a default plain material for meshes like that, which is exactly the washed-out white in the screenshot. Confirmed via the same node-script bounding-box/keyframe inspection from Entry 50 that the open pose (lid open + ticket risen + scattered glitter) spans roughly y=0 to y=2.6 in the model's local space, while the camera was centered on the origin (y=0) — so the top third of that range (the open lid) was pushed above the visible frame.
+- `RewardBox3D.tsx`: on load, traverses the scene for the `GiftBox_Body` mesh specifically and assigns it a `MeshStandardMaterial` in the project's wine color (`#6e2a3a`) at runtime, since re-exporting the `.glb` from Blender isn't something I can do here. Recentered the model by wrapping it in a group offset `position={[0, -1.3, 0]}` (roughly the open pose's vertical midpoint) so the full open box sits centered on the camera's look-at target instead of being anchored at its bottom. Pulled the camera back and widened it (`position: [0, 0.4, 4.6], fov: 38`, from `[0, 1.6, 4.2], fov: 32`) so the taller recentered scene fits in frame with margin.
+- Verified: `tsc --noEmit` clean. **Not yet re-confirmed live** — same live-verification gap as Entry 50, the fix is reasoned from the actual glTF data (not a blind guess) but I can't render/screenshot it myself.
+
+**Current state relative to build order:**
+- Step 5 (reward reveal) — 3D model should now show the correct wine-colored box with the full open lid/ticket in frame; box-body material and camera framing were the two issues raised, both addressed at the code level.
+
+**Unfinished / partial:**
+- Needs a fresh screenshot/live check to confirm the crop and color are actually fixed, and that the `top-[38%]` ticket-text overlay position (unchanged, still a same order-of-magnitude guess) still lands over the ticket now that the camera moved.
+- Same carried-over items as Entry 50.
+
+**Open questions for user (not blocking):**
+- Please send another screenshot (or try it live) once you get a chance — want to confirm the box now shows fully, in the right color, with the ticket text landing on the ticket.
+- (Carried over) hosting target, real letter-page sentences, live Formspree test.
+
+**Next step:**
+Await confirmation on the box color/framing fix. If the ticket text overlay is off-position now, nudge `top-[38%]` in `RewardReveal.tsx` next.
+
+## Entry 52 — 2026-09-14 — letter-page sentences get a dedicated "bloom" entrance animation
+
+**Done:**
+- User asked for the letter-page text to pop up one by one, small → big, with a romantic feel (rather than the plain fade+rise every screen currently shares via `soft-reveal`).
+- Added a new `letter-bloom` keyframe + `.animate-letter-bloom` class in `app/globals.css`, scoped to letter pages only — deliberately did **not** touch the shared `soft-reveal` animation, since it's reused across 7 other components (PIN hints, quiz reveal text, reward reveal's Continue button, album reveal, trust-check, photo album). `letter-bloom` starts each sentence small (`scale(0.55)`) and softly blurred, grows past full size (`scale(1.04)`) as it sharpens and fades in, then settles to `scale(1)` — a slower (1s, custom ease-out curve) more deliberate reveal than the 0.6s linear fade the rest of the site uses.
+- `LetterPages.tsx`: swapped the per-sentence `<p>`'s class from `animate-soft-reveal` to `animate-letter-bloom`. Left the existing per-sentence stagger (`SENTENCE_DELAY_MS`, animKey remount-on-navigate logic) untouched — only the animation itself changed.
+- Updated `plan.md`'s step 8 description to document the dedicated `letter-bloom` animation in place of the shared `soft-reveal` reference.
+- Verified: `tsc --noEmit` clean. **Not visually confirmed live** — same standing caveat as most animation-tuning entries in this log (e.g. Entries 23–24); the letter pages require navigating the full flow to reach, so I couldn't screenshot it myself.
+
+**Current state relative to build order:**
+- Step 8 (letter pages) — entrance animation now bespoke/romantic per this request; still running on placeholder text (unchanged, real letter content still pending from user).
+
+**Unfinished / partial:**
+- Not live-verified. Timing/scale numbers (`scale(0.55)` start, `scale(1.04)` overshoot, 1s duration) are first-pass choices, easy to tune once seen.
+- Same carried-over items as Entry 51: 3D reward-box live confirmation still outstanding, real letter-page sentences, hosting target, live Formspree test.
+
+**Open questions for user (not blocking):**
+- Does the bloom timing/scale feel right, or too slow/fast, once you see it on the letter pages?
+- (Carried over) 3D reward-box screenshot confirmation, hosting target, real letter-page sentences, live Formspree test.
+
+**Next step:**
+Awaiting live feedback on both this animation and the reward-box 3D fixes from Entry 51.
+
+## Entry 53 — 2026-09-14 — corrected letter-page reveal: one sentence at a time, not all stacked
+
+**Done:**
+- User clarified Entry 52 didn't match what they wanted: not all sentences fading in together (staggered but simultaneously stacked/visible), but **one sentence at a time**, centered on screen — pops up, then vanishes, then the next one pops up — cycling through every sentence on the page before Back/Next navigates to the next page.
+- Reworked `LetterPages.tsx`: replaced the "render all sentences, staggered" list with a single `sentenceIndex` state — only `sentences[sentenceIndex]` renders at a time, centered in the card (`items-center justify-center`, `text-center`). Its `onAnimationEnd` handler advances to the next sentence, so the CSS animation's own duration (not a separate timer) drives the pacing. Added a `cycleKeys` counter (same pattern as the old `animKeys`) so revisiting a page always restarts from the first sentence, even when `sentenceIndex` resets to the same `0` it already was.
+- Rewrote `globals.css`'s animation: `letter-bloom` (persistent grow-in, kept on screen) replaced with `letter-cycle` (3.2s) — pops up small→big with a blur clearing (0–28%), holds fully visible so it can be read (28–72%), then shrinks back down and fades to nothing (72–100%). The percentages double as the actual pop/hold/vanish timing since `handleSentenceDone` fires on the CSS animation's `end` event.
+- Updated `plan.md`'s step 8 description to reflect the corrected one-at-a-time cycling behavior in place of the (wrong) simultaneous-stagger version from Entry 52.
+- Verified: `tsc --noEmit` clean, dev server compiles and serves the homepage with no console errors (killed a leftover dev server from an earlier session in the process, same recurring housekeeping noted in several past entries). **Not visually confirmed live** — same standing caveat, letter pages are reached at the very end of the flow.
+
+**Current state relative to build order:**
+- Step 8 (letter pages) — entrance behavior now matches the requested "pop up one by one, vanish, then next" flow; still on placeholder text.
+
+**Unfinished / partial:**
+- Not live-verified. The 3.2s per-sentence cycle duration (and its internal pop/hold/vanish split) is a first-pass guess — may need to be longer for longer sentences or shorter for single-word ones, easy to tune in `globals.css`'s `letter-cycle` keyframe.
+- Same carried-over items as Entry 52: 3D reward-box live confirmation still outstanding, real letter-page sentences, hosting target, live Formspree test.
+
+**Open questions for user (not blocking):**
+- Does the 3.2s pop/hold/vanish pacing feel right per sentence, or does it need to be longer/shorter?
+- (Carried over) 3D reward-box screenshot confirmation, hosting target, real letter-page sentences, live Formspree test.
+
+**Next step:**
+Awaiting live feedback on the corrected letter-page cycling, plus the still-outstanding reward-box 3D confirmation from Entry 51.
+
+## Entry 54 — 2026-09-14 — letter-page cycle now ends in a full-text reveal; appear/disappear slowed 0.5x
+
+**Done:**
+- User asked for two refinements to Entry 53's one-at-a-time sentence cycle: (1) once a page's sentences finish cycling, show the full text list together (so the whole message is re-readable at a glance before moving on), and (2) slow the appear/disappear itself down to roughly 0.5x speed.
+- `LetterPages.tsx`: added a `showFullText` boolean state. `handleSentenceDone` now advances to the next sentence as before, but on the *last* sentence's cycle finishing, sets `showFullText` instead of advancing further. When true, the card swaps from the single centered/cycling sentence to the original stacked-list layout (all lines, `animate-soft-reveal`, staggered 150ms apart) — effectively the same full-list view the letter pages had before Entry 53's one-at-a-time rework, now shown as a "recap" after the cycle rather than as the only view. `goTo` resets both `sentenceIndex` and `showFullText` on every page navigation so revisiting a page always replays the cycle first. (Fixed a minor anti-pattern while writing this: initially put the `setShowFullText` call inside a `setSentenceIndex(i => ...)` updater function, which mixes a side effect into what should be a pure state updater — reworked to read `sentenceIndex` directly from closure and branch with plain `if`, since `onAnimationEnd` fires synchronously against current state anyway.)
+- `globals.css`'s `letter-cycle` keyframe: recalculated percentages so the pop-in and vanish phases each take roughly double their previous duration while the hold in the middle stays about the same absolute length (not just linearly stretching everything) — total animation duration went from 3.2s to 5s. Math: old enter/exit were 0.896s each out of 3.2s; doubled to 1.792s each, plus the original 1.408s hold ≈ 4.99s, rounded to 5s and re-expressed as percentages (pop-in 0–36%, hold 36–64%, vanish 64–100%).
+- Verified: `tsc --noEmit` clean, dev server compiles and serves the homepage with no console errors (killed a leftover dev server from an earlier session first, same recurring housekeeping as prior entries). **Not visually confirmed live** — same standing caveat, letter pages sit at the very end of the flow.
+
+**Current state relative to build order:**
+- Step 8 (letter pages) — cycle-then-full-text-recap behavior and slower appear/disappear now match this request; still on placeholder text.
+
+**Unfinished / partial:**
+- Not live-verified. The exact 5s duration and the 150ms full-text stagger are first-pass numbers, easy to retune once seen.
+- Same carried-over items as Entry 53: 3D reward-box live confirmation, real letter-page sentences, hosting target, live Formspree test.
+
+**Open questions for user (not blocking):**
+- Does the new 0.5x pop-in/vanish speed feel right, and does the full-text recap at the end of each page's cycle read well?
+- (Carried over) 3D reward-box screenshot confirmation, hosting target, real letter-page sentences, live Formspree test.
+
+**Next step:**
+Awaiting live feedback on this and the still-outstanding reward-box 3D confirmation from Entry 51.
+
+## Entry 55 — 2026-09-14 — moved "Continue to your surprise" onto the same row as Back
+
+**Done:**
+- User asked to move the photo album's last-page "Continue to your surprise →" button up onto the same line as the "← Back" button, instead of sitting on its own row below.
+- `PhotoAlbum.tsx`: the nav row's second slot now conditionally renders either "Next →" or (on the last page) "Continue to your surprise →" in the same `flex items-center gap-8` row as Back — replacing the old layout where Next disappeared on the last page and Continue rendered as a separate row underneath. Removed the now-empty standalone block; no new state or logic, purely a placement change.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- Step 3 (photo album) — unchanged functionally, last-page nav row layout only.
+
+**Unfinished / partial:**
+- Not visually confirmed live (reaching the album's last page requires walking the full flow) — should be a low-risk change since it only reuses existing button markup in a different slot of the same flex row.
+
+**Open questions for user (not blocking):**
+- (Carried over) 3D reward-box screenshot confirmation, letter-page pacing/full-text-recap feedback, real letter-page sentences, hosting target, live Formspree test.
+
+**Next step:**
+Awaiting live feedback across the still-outstanding items above.
+
+## Entry 56 — 2026-09-14 — bigger/bold text for the letter-page one-at-a-time cycle
+
+**Done:**
+- User asked for the letter-page text to be bigger and bold specifically while it's showing "separately" (the one-at-a-time pop/vanish cycle from Entries 53–54), for legibility.
+- `LetterPages.tsx`: bumped that sentence's classes from `text-lg` to `text-2xl font-bold`. Left the full-text-recap view (shown after the cycle finishes) at its existing `text-base` — that request was specifically about the single-sentence cycling view, not the recap.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- Step 8 (letter pages) — unchanged functionally, typography-only tweak to the cycling view.
+
+**Unfinished / partial:**
+- Not visually confirmed live — same standing caveat as other letter-page entries.
+
+**Open questions for user (not blocking):**
+- (Carried over) 3D reward-box screenshot confirmation, letter-page pacing/full-text-recap feedback, real letter-page sentences, hosting target, live Formspree test.
+
+**Next step:**
+Awaiting live feedback across the still-outstanding items above.
+
+## Entry 57 — 2026-09-14 — replaced site fonts to fix Thai/English inconsistency
+
+**Done:**
+- User noticed Thai and English text looked inconsistent in size/weight next to each other. Root cause: `Cormorant Garamond` and `Jost` (the site's fonts since the very first PIN-page entry) only ship Latin glyphs — Google Fonts has no Thai subset for either — so every Thai character across the site (the large majority of the copy) was silently falling back to whatever default font the OS/browser picks, which doesn't match the Latin font's metrics/weight. This wasn't a sizing bug in any component, it was baked into the original font choice from Entry 2.
+- Since this meant replacing a design token recorded in `plan.md` (not something to silently change per this project's ground rules), asked the user to pick between two Thai-capable pairings that could plausibly preserve the site's elegant/romantic feel — Noto Serif Thai + Noto Sans Thai (safe, consistent metrics, more neutral) vs. Trirong + Mitr (more traditional/decorative Thai serif + rounded friendly sans). User picked Noto Serif Thai + Noto Sans Thai.
+- `app/layout.tsx`: swapped the `next/font/google` imports from `Cormorant_Garamond`/`Jost` to `Noto_Serif_Thai`/`Noto_Sans_Thai`, both loaded with `subsets: ["latin", "thai"]` (previously `["latin"]` only) so both scripts render from the same family everywhere `font-display`/`font-body` are used — no component-level changes needed since every screen already referenced those two CSS variables rather than hardcoding a font name.
+- Updated `plan.md`'s design tokens section to record the new font pairing and why the switch happened.
+- Verified: `tsc --noEmit` clean, dev server fetches the new Google Fonts and compiles/serves the homepage with no errors (cleared a couple of stale leftover dev-server processes in the process, same recurring housekeeping as prior entries).
+
+**Current state relative to build order:**
+- Applies site-wide (every screen uses `font-display`/`font-body`) — no build-order step changes, purely a typography fix.
+
+**Unfinished / partial:**
+- Not visually confirmed live — same standing caveat as most recent entries; worth a look on an actual device to confirm Thai and English now read as one consistent typeface everywhere (headings, buttons, quiz/letter copy, etc.).
+
+**Open questions for user (not blocking):**
+- Does the new pairing read as elegant/romantic enough, or should it be swapped for the Trirong + Mitr alternative (or something else) once you've seen it live?
+- (Carried over) 3D reward-box screenshot confirmation, letter-page pacing/full-text-recap feedback, real letter-page sentences, hosting target, live Formspree test.
+
+**Next step:**
+Awaiting live feedback on the new fonts alongside the other still-outstanding items above.
+
+## Entry 58 — 2026-09-14 — actually verified the Thai/English font fix (not just compile-checked)
+
+**Done:**
+- User was about to do a real end-to-end test run and is rationing Formspree's free-tier submission limit, so asked for real confidence that Entry 57's font swap actually fixed the Thai/English inconsistency — not just "tsc is clean," which doesn't prove anything about font rendering.
+- Built a temporary, throwaway verification page (`app/dev-font-check/page.tsx`, never part of the real flow) with several Thai+English mixed lines lifted from the site's actual copy (reward reveal's "Your Surprise บัตรตามใจ", the quiz's correct-answer text, the landing instruction, the album-reveal button, and the letter-page cycle text), each half wrapped in its own `<span>` so Thai and Latin could be inspected independently.
+- Installed `playwright-core` (temporary devDependency) and drove the machine's actual installed Microsoft Edge (`msedge.exe`, via `executablePath` — no browser download needed) to load that page and read back `getComputedStyle` for every span: **confirmed the Thai and Latin halves of every line resolve to the exact same `font-family` (`"Noto Serif Thai"`/`"Noto Sans Thai"` + their Next.js-generated fallback), the same `font-weight`, and the same `font-size`** — no silent OS-fallback happening anywhere. Also took a full-page screenshot and visually confirmed the Thai and English text sit on a consistent baseline/weight within each line.
+- Cleaned up everything used for the check afterward: deleted `app/dev-font-check/`, the scratch Playwright script, and the screenshot; ran `npm uninstall playwright-core` to remove it from `package.json`/`package-lock.json` again, since it was only needed for this one verification, not an ongoing project dependency.
+- Deleting the temp page left a stale generated-types reference (`.next/dev/types/validator.ts` pointing at the now-gone route), which surfaced as a `tsc` error — cleared by deleting `.next` and letting `next dev` regenerate it. Re-ran `tsc --noEmit` clean afterward.
+- Noted in passing, not touched: `WishInput.tsx` has an unrelated one-word copy edit ("ส่งพร" → "ขอพร") sitting in the working tree that wasn't made by me — looks like the user's own direct edit (the file was open in their IDE this session). Left as-is, flagging per this project's "don't silently revert things you didn't do" habit from earlier entries.
+
+**Current state relative to build order:**
+- No functional change from Entry 57 — this entry is verification only, confirming that fix actually works rather than changing anything further.
+
+**Unfinished / partial:**
+- Verified via an isolated test page with representative copy, not by clicking through the entire real flow end-to-end (PIN → ... → letters) — the font variables are global CSS custom properties applied the same way everywhere, so this should generalize, but a live full walkthrough would be the final word if there's any doubt left.
+
+**Open questions for user (not blocking):**
+- None new — go ahead with your real test run; if anything still looks off with the fonts specifically, it'd now point to something screen-specific rather than the font choice itself.
+- (Carried over) 3D reward-box screenshot confirmation, letter-page pacing/full-text-recap feedback, real letter-page sentences, hosting target.
+
+**Next step:**
+Awaiting the outcome of the user's real test run (including the one Formspree submission) and any feedback from it.
+
+## Entry 59 — 2026-09-14 — correction: letter-page content was already real, not placeholder
+
+**Done:**
+- In the previous plan.md review (end of Entry 58's session), I told the user letter pages still had placeholder text — wrong. `LetterPages.tsx`'s `PAGES` array already held the user's real 3-page birthday message (confirmed via `git diff` against the last commit); I'd gone off a stale `// PLACEHOLDER CONTENT` comment sitting above the array instead of actually reading its contents. The user caught the mistake.
+- Fixed the stale comment in `LetterPages.tsx` itself so this can't recur.
+- Corrected `plan.md`: removed "real letter-page sentences" from the pending-content checklist, reworded step 8's flow description and build-order line to state the real message is in place rather than placeholder text. Also updated the ticket-image pending-content line to note it's arguably moot now that the 3D box (Entry 50) replaced the card and the ticket text lives as an HTML overlay, not an image.
+
+**Current state relative to build order:**
+- Step 8 (letter pages) is now correctly marked **done** with real content — no remaining content gaps in `plan.md` except the (likely moot) optional ticket image and the hosting decision.
+
+**Unfinished / partial:**
+- None from this entry — a documentation correction only, no code behavior changed.
+
+**Open questions for user (not blocking):**
+- Confirm whether the reward-ticket image is still wanted at all now that the 3D model replaced the card, so that pending-content line can be removed outright rather than left as "arguably moot."
+- (Carried over) 3D reward-box live confirmation, hosting target, music autoplay real-device check, Formspree real delivery confirmation.
+
+**Next step:**
+Awaiting the outcome of the user's test run referenced in Entry 58, plus the ticket-image question above.
+
+## Entry 60 — 2026-09-14 — full flow confirmed working on a real run; hosting decided (Vercel, self-deployed)
+
+**Done:**
+- User ran the real end-to-end test (the one they were rationing Formspree's free-tier limit for) and confirmed all three remaining open items work: the 3D reward box (framing/color fixes from Entry 51 hold up live), music autoplay on a real device, and Formspree delivery.
+- User also resolved the plan's last open technical decision: hosting will be Vercel, deployed by the user themselves — no action needed on this end.
+- Updated `plan.md`: Stack section now states Vercel deployment (was "TBD — ask user"); Open technical/product decisions section marked resolved; build-order lines 4–6 (music, reward reveal, wish input/Formspree) changed from "not yet confirmed" caveats to "done, real-device-confirmed"; build-order line 9 rewritten to state the full flow is confirmed working end to end with no known functional gaps remaining (only the optional ticket-image question left open).
+- **No app code changed this entry** — purely closing out `plan.md`'s tracking now that real-world confirmation came back positive.
+
+**Current state relative to build order:**
+- Every numbered build-order step (0 through 8) is now either **done** or **built**-and-confirmed; step 9 (end-to-end + polish) reflects a fully working confirmed flow. Nothing in `plan.md` is currently blocked on missing content or an unresolved decision, aside from the optional/likely-moot ticket-image question from Entry 59.
+
+**Unfinished / partial:**
+- None functionally. Cosmetic/polish opportunities may still surface from further live use, but there's no known broken or incomplete piece left.
+
+**Open questions for user (not blocking):**
+- Still open from Entry 59: is the reward-ticket image still wanted at all, given the 3D box already replaced the card? If no, that pending-content line can be deleted outright.
+
+**Next step:**
+Project is functionally complete and confirmed working. Remaining work, if any, is user-initiated polish requests or the ticket-image decision above — no active blocking task right now.

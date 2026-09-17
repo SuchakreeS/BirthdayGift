@@ -1,10 +1,15 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { createTimeline, stagger, utils } from "animejs";
+import { createTimeline } from "animejs";
+import RewardBox3D, { REWARD_BOX_ANIMATION_MS } from "./RewardBox3D";
 
-const GLITTER_COUNT = 12;
 const FALLING_STAR_COUNT = 22;
+// Ticket text overlay fades in as the 3D ticket card finishes settling,
+// and the Continue button follows shortly after — mirrors the old
+// animejs-timeline pacing, just timed off the model's clip length now.
+const TICKET_TEXT_DELAY_MS = REWARD_BOX_ANIMATION_MS - 300;
+const CONTINUE_DELAY_MS = REWARD_BOX_ANIMATION_MS + 250;
 
 type FallingStar = {
   left: number;
@@ -18,9 +23,6 @@ type FallingStar = {
 export default function RewardReveal({ onContinue }: { onContinue: () => void }) {
   const [opened, setOpened] = useState(false);
   const lightRef = useRef<HTMLDivElement>(null);
-  const lidRef = useRef<HTMLDivElement>(null);
-  const ticketRef = useRef<HTMLDivElement>(null);
-  const glitterWrapRef = useRef<HTMLDivElement>(null);
 
   // Randomized once per mount so the falling stars don't all fall in
   // lockstep — regenerating on every render would restart/desync them.
@@ -40,62 +42,18 @@ export default function RewardReveal({ onContinue }: { onContinue: () => void })
   function handleOpen() {
     if (opened) return;
     const light = lightRef.current;
-    const lid = lidRef.current;
-    const ticket = ticketRef.current;
-    const glitterPieces = glitterWrapRef.current?.children;
-    if (!light || !lid || !ticket || !glitterPieces) return;
+    if (!light) return;
 
     setOpened(true);
 
-    // Timeline auto-plays once created (default behavior).
-    createTimeline({ defaults: { ease: "outQuad" } })
-      .add(light, {
-        opacity: [0, 1, 0],
-        scale: [0.2, 1.9],
-        duration: 700,
-      })
-      .add(
-        lid,
-        {
-          rotateX: [0, -115],
-          translateY: [0, -6],
-          duration: 600,
-        },
-        "-=600", // light and lid open together, light leading slightly
-      )
-      .add(
-        ticket,
-        {
-          opacity: [0, 1],
-          scale: [0.3, 1],
-          translateY: [30, -18],
-          // Vertical-axis flip (like a card spinning around its center
-          // line) instead of a flat clock-hand rotation — stays upright
-          // and readable at rest, never looks tipped on its side mid-spin.
-          rotateY: [0, 1080], // 3 full flips
-          duration: 3400, // 0.5x speed of the previous 1700ms
-          ease: "outElastic(1, .6)",
-        },
-        "-=200",
-      )
-      .add(
-        glitterPieces,
-        {
-          opacity: [0, 1, 0],
-          scale: [0, 1],
-          translateX: () => utils.random(-90, 90),
-          translateY: () => utils.random(-90, 90),
-          duration: 900,
-          delay: stagger(35),
-          ease: "outQuad",
-        },
-        "-=2700", // same proportional overlap into the now-longer spin
-      )
-      .add(ticket, {
-        translateY: [-18, 0],
-        duration: 550,
-        ease: "outBounce",
-      });
+    // The box-open/lid/ticket-spin sequence itself now lives in the .glb's
+    // baked animation clips (see RewardBox3D) — this timeline just keeps
+    // the 2D light-burst flash layered on top of it.
+    createTimeline({ defaults: { ease: "outQuad" } }).add(light, {
+      opacity: [0, 1, 0],
+      scale: [0.2, 1.9],
+      duration: 700,
+    });
   }
 
   return (
@@ -127,10 +85,7 @@ export default function RewardReveal({ onContinue }: { onContinue: () => void })
         Your Surprise
       </h1>
 
-      <div
-        className="relative z-10 flex h-56 w-56 items-center justify-center"
-        style={{ perspective: "800px" }}
-      >
+      <div className="relative z-10 h-80 w-80">
         {/* shining light burst, flashes out as the box opens */}
         <div
           ref={lightRef}
@@ -141,70 +96,56 @@ export default function RewardReveal({ onContinue }: { onContinue: () => void })
           }}
         />
 
-        {/* glitter particles, positioned centered, animated outward */}
-        <div
-          ref={glitterWrapRef}
-          className="pointer-events-none absolute left-1/2 top-1/2 h-0 w-0"
-        >
-          {Array.from({ length: GLITTER_COUNT }).map((_, i) => (
-            <span
-              key={i}
-              className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 text-lg text-gold opacity-0"
-            >
-              {i % 2 === 0 ? "✦" : "✧"}
-            </span>
-          ))}
+        {/* the 3D gift box — its own baked animation plays the lid
+            opening and the ticket rising/spinning out once `opened` */}
+        <div className="absolute inset-0 z-10">
+          <RewardBox3D playing={opened} />
         </div>
 
-        {/* ticket, hidden inside the box until opened */}
-        <div
-          ref={ticketRef}
-          className="pointer-events-none absolute z-10 flex w-44 flex-col items-center gap-1 rounded-md border-2 border-dashed border-gold bg-ivory px-4 py-5 text-center shadow-lg opacity-0"
-        >
-          <p className="font-display text-xl text-wine-deep">บัตรตามใจ</p>
-          <p className="font-body text-[11px] leading-snug text-ink-soft">
-            สามารถใช้บัตรใบนี้เพื่อให้เราตามใจได้
-            <br />
-            บัตรใบนี้มีผล 24 ชั่วโมง 
-             <br />
-            วันหมดอายุ:ไม่มี
-          </p>
-        </div>
+        {/* ticket text overlay — the .glb's ticket card is a plain
+            (textureless) mesh, so the "บัตรตามใจ" copy is a separate
+            HTML card faded in once the 3D ticket has risen into place.
+            Positioning is a first-pass guess against the model's final
+            ticket height, not yet confirmed live. */}
+        {opened && (
+          <div
+            className="animate-soft-reveal pointer-events-none absolute left-1/2 top-[38%] z-20 flex w-44 -translate-x-1/2 flex-col items-center gap-1 text-center"
+            style={{ animationDelay: `${TICKET_TEXT_DELAY_MS}ms` }}
+          >
+            <p className="font-display text-xl text-wine-deep">บัตรตามใจ</p>
+            <p className="font-body text-[11px] leading-snug text-ink-soft">
+              สามารถใช้บัตรใบนี้เพื่อให้เราตามใจได้
+              <br />
+              บัตรใบนี้มีผล 24 ชั่วโมง
+              <br />
+              วันหมดอายุ:ไม่มี
+            </p>
+          </div>
+        )}
 
-        {/* box */}
+        {/* invisible tap target over the whole scene */}
         <button
           type="button"
           onClick={handleOpen}
           aria-label="Open your present"
-          className="absolute bottom-0 flex h-32 w-40 flex-col items-center"
-          style={{ transformStyle: "preserve-3d" }}
+          className="absolute inset-0 z-30"
           disabled={opened}
-        >
-          <div
-            ref={lidRef}
-            className="absolute -top-6 z-20 h-8 w-44 rounded-sm bg-wine-deep shadow"
-            style={{ transformOrigin: "top center" }}
-          >
-            <span className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold" />
-          </div>
-          <div className="relative h-32 w-40 rounded-sm bg-wine shadow-md">
-            <span className="absolute left-1/2 top-0 h-full w-3 -translate-x-1/2 bg-gold" />
-          </div>
-        </button>
+        />
       </div>
 
       <p className="relative z-10 font-body text-sm text-ink-soft">
         {opened ? "เปิดแล้ว ✦" : "Tap the box to open it"}
       </p>
 
-      {/* Appears once the box-open/spin/glitter timeline has had time to
-          finish (~3.95s) so she isn't rushed past the reveal. */}
+      {/* Appears once the box-open/ticket-spin animation has had time to
+          finish (~3.96s, from the model's own clips) so she isn't rushed
+          past the reveal. */}
       {opened && (
         <button
           type="button"
           onClick={onContinue}
           className="animate-soft-reveal relative z-10 font-body text-sm text-gold underline underline-offset-4"
-          style={{ animationDelay: "4200ms" }}
+          style={{ animationDelay: `${CONTINUE_DELAY_MS}ms` }}
         >
           Continue →
         </button>
