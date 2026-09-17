@@ -195,7 +195,7 @@ export default function WishInput({ onContinue }: { onContinue: () => void }) {
           disabled={status === "sending"}
           className="rounded-md bg-wine px-4 py-2 font-body text-sm text-ivory disabled:opacity-60"
         >
-          {status === "sending" ? "กำลังส่ง..." : "ส่งพร"}
+          {status === "sending" ? "กำลังส่ง..." : "ขอพร"}
         </button>
         {status === "error" && (
           <p className="font-body text-xs text-wine-deep">

@@ -219,7 +219,22 @@ export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
         >
           ← Back
         </button>
-        {!isLastPage && (
+        {isLastPage ? (
+          /* Manual advance out of the album, shown as soon as she's on the
+             last page — deliberately NOT gated on all its photos having
+             flown in (that depends on beat detection, which can stall for
+             good reason: blocked autoplay, a quiet stretch of the song,
+             etc. — the button must never be stuck unreachable because of
+             that). No timer here, she taps when ready. Sits alongside Back
+             instead of Next once there's no next page to go to. */
+          <button
+            type="button"
+            onClick={onContinue}
+            className="animate-soft-reveal font-body text-sm text-gold underline underline-offset-4"
+          >
+            Continue to your surprise →
+          </button>
+        ) : (
           <button
             type="button"
             onClick={() => goTo(currentIndex + 1)}
@@ -230,22 +245,6 @@ export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
           </button>
         )}
       </div>
-
-      {/* Manual advance out of the album, shown as soon as she's on the last
-          page — deliberately NOT gated on all its photos having flown in
-          (that depends on beat detection, which can stall for good reason:
-          blocked autoplay, a quiet stretch of the song, etc. — the button
-          must never be stuck unreachable because of that). No timer here,
-          she taps when ready. */}
-      {isLastPage && (
-        <button
-          type="button"
-          onClick={onContinue}
-          className="relative z-10 animate-soft-reveal font-body text-sm text-gold underline underline-offset-4"
-        >
-          Continue to your surprise →
-        </button>
-      )}
     </div>
   );
 }

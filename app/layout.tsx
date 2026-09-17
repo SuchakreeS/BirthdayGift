@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Jost } from "next/font/google";
+import { Noto_Serif_Thai, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 
-const cormorant = Cormorant_Garamond({
+// Cormorant Garamond/Jost (the original pick) only cover Latin glyphs, so
+// every Thai character on the site — most of the copy — was silently
+// falling back to whatever default font the OS/browser picked, mismatched
+// in size/weight against the Latin bits sitting right next to it. These
+// two cover Thai and Latin in the same family, so both scripts share
+// consistent metrics everywhere.
+const notoSerifThai = Noto_Serif_Thai({
   variable: "--font-display",
-  subsets: ["latin"],
+  subsets: ["latin", "thai"],
   weight: ["400", "500", "600", "700"],
 });
 
-const jost = Jost({
+const notoSansThai = Noto_Sans_Thai({
   variable: "--font-body",
-  subsets: ["latin"],
+  subsets: ["latin", "thai"],
   weight: ["300", "400", "500"],
 });
 
@@ -23,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${cormorant.variable} ${jost.variable} h-full antialiased`}
+      className={`${notoSerifThai.variable} ${notoSansThai.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

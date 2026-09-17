@@ -45,6 +45,7 @@ export default function MusicProvider({ children }: { children: ReactNode }) {
   // so the analyser/context are built once and cached in a ref rather than
   // recreated on every effect run.
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   useEffect(() => {
     const audioEl = audioRef.current;
     if (!audioEl) return;
@@ -61,13 +62,37 @@ export default function MusicProvider({ children }: { children: ReactNode }) {
       source.connect(analyser);
       analyser.connect(audioCtx.destination);
       analyserRef.current = analyser;
+      audioCtxRef.current = audioCtx;
     }
     const analyser = analyserRef.current;
+    const audioCtx = audioCtxRef.current;
 
-    audioEl.play().catch(() => {
-      // Autoplay blocked by the browser — the site still works, just without
-      // music/beat-synced entrances until she interacts with the page.
-    });
+    // Routing the <audio> element through Web Audio (createMediaElementSource
+    // above) means its actual sound output depends on the AudioContext being
+    // "running" — a fresh context starts "suspended" and, unlike plain
+    // audioEl.play(), doesn't reliably auto-resume just because this effect
+    // happens to run soon after a click (it mounts from inside a setTimeout
+    // after the quiz's correct-answer delay, which the browser doesn't treat
+    // as gesture-driven). play() succeeds and currentTime advances either
+    // way, so this fails silently instead of throwing. Try to resume right
+    // away, and as a fallback, resume + retry on the next real tap/click
+    // anywhere on the page (there are several coming up: quiz options,
+    // reward box, wish input) so it un-sticks itself even if the first
+    // attempt is blocked.
+    function tryPlay() {
+      audioCtx?.resume().catch(() => {});
+      audioEl!.play().catch(() => {});
+    }
+    tryPlay();
+
+    function onUserGesture() {
+      if (audioCtx?.state === "running" && !audioEl!.paused) {
+        document.removeEventListener("pointerdown", onUserGesture);
+        return;
+      }
+      tryPlay();
+    }
+    document.addEventListener("pointerdown", onUserGesture);
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     let lastBeatTime = 0;
@@ -96,6 +121,7 @@ export default function MusicProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelAnimationFrame(rafId);
+      document.removeEventListener("pointerdown", onUserGesture);
       // Not closing the AudioContext here — Strict Mode's cleanup+rerun
       // needs the analyser to still exist for the next effect invocation.
       // The browser tears everything down on real page unload anyway.
