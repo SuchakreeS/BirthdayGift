@@ -117,9 +117,17 @@ export default function LandingScreen({ onEnter }: { onEnter: () => void }) {
 
         {/* Hanging banner */}
         <div className="animate-banner-sway absolute left-1/2 top-0 -translate-x-1/2 pt-6">
-          <Bunting text="HAPPY BIRTHDAY" flagSize={34} />
-          <div className="mt-4">
-            <Bunting text="my BELOVED" flagSize={30} />
+          {/* "HAPPY BIRTHDAY" at flagSize 34 is ~541px wide at full size — wider than
+              most phone screens, so it gets clipped by the page's overflow-hidden.
+              Scale the whole banner down together (keeping both lines proportional)
+              once the viewport can't fit it at 92vw. */}
+          <div
+            style={{ transform: "scale(min(1, calc(92vw / 541px)))", transformOrigin: "top center" }}
+          >
+            <Bunting text="HAPPY BIRTHDAY" flagSize={34} />
+            <div className="mt-4">
+              <Bunting text="my BELOVED" flagSize={30} />
+            </div>
           </div>
         </div>
 

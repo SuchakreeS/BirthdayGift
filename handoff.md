@@ -1358,3 +1358,25 @@ Awaiting the outcome of the user's test run referenced in Entry 58, plus the tic
 
 **Next step:**
 Project is functionally complete and confirmed working. Remaining work, if any, is user-initiated polish requests or the ticket-image decision above — no active blocking task right now.
+
+## Entry 61 — 2026-09-21 — fixed landing page banner overflow on mobile
+
+**Done:**
+- User reported the landing page's hanging banner ("HAPPY BIRTHDAY" / "my BELOVED") had letters cut off at both edges on their phone (screenshot at ~342px viewport width confirmed it); other screens looked fine to them.
+- Root cause: `Bunting` in `LandingScreen.tsx` renders each letter as a fixed-size flag (`flagSize={34}` for line 1, `30` for line 2), so "HAPPY BIRTHDAY" renders at a fixed ~541px wide regardless of viewport — wider than any phone screen, and the page's `overflow-hidden` clipped the excess instead of wrapping/shrinking it.
+- Fix: wrapped both banner lines in a container with `transform: scale(min(1, calc(92vw / 541px)))`, `transformOrigin: top center`. This scales the whole banner (both lines, proportionally) down together only when the viewport is too narrow to fit it at ~92% width; on wider screens `min()` clamps the scale to 1 (unchanged from before, matching the previously working desktop/wide-mobile look). Kept the existing per-flag pixel sizing/rotation logic in `Bunting` untouched — only the outer wrapper changed.
+- Checked every other component (`grep` across `app/components` for fixed px widths) — all other screens already use `w-full`/relative sizing with padding (e.g. `PhotoAlbum.tsx`'s card is `w-full max-w-140`, not a fixed px width), so the landing banner was the one actual overflow bug, not a symptom of a wider pattern.
+- Verified visually, not just `tsc`: started the dev server and used a temporary Playwright + local Microsoft Edge script (same throwaway-verification pattern as Entry 58 — written outside the app, deleted after) to screenshot the landing page at 320px, 342px, 375px, and 414px viewport widths. Confirmed both banner lines render fully on-screen with no clipping at all four widths, scaling down proportionally at the narrowest and unchanged at the widest. Screenshots and the script were not kept.
+- `npx tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- No build-order step changed — this is a bugfix within step 0 (Landing page, already marked done). No content or flow changes.
+
+**Unfinished / partial:**
+- Only the landing page was checked pixel-by-pixel against real mobile widths; other screens were reviewed for the same *class* of bug (fixed px widths that could overflow) via source inspection, not re-screenshotted, since the user hadn't flagged issues elsewhere and the grep found no other fixed-width culprits. Worth a look if anything else turns up on a real device.
+
+**Open questions for user (not blocking):**
+- None new. (Carried over from Entry 59/60: is the reward-ticket image still wanted at all now that the 3D box replaced the card?)
+
+**Next step:**
+Awaiting confirmation the banner looks right on the user's actual phone, and word on whether any other screen needs a responsive fix.
