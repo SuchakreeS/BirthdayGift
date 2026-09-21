@@ -775,3 +775,27 @@ Real photos for the album, real sentences for the letter pages, live Formspree t
 
 **Next step:**
 Real photos for the album, real sentences for the letter pages, live Formspree test (on the real endpoint, not the intercepted test one), optional ticket image, and hosting target remain the open items.
+
+## Entry 35 — 2026-08-13 — song now persists past the photo album instead of stopping
+
+**Done:**
+- User asked for the song to keep playing once she enters the photo album and continue all the way until the song ends, instead of stopping once she leaves the album screen.
+- **Root cause of the old behavior**: the `<audio>` element lived inside `PhotoAlbum.tsx` itself, so it was destroyed (and playback cut off) the moment that component unmounted on the album→reward handoff.
+- **Fix**: moved the `<audio>` element up to `app/page.tsx`, rendered unconditionally alongside whichever step is currently showing (restructured the step selection from a series of early `return`s into an `if/else` chain assigning to a `step` variable, then rendering `<audio>` + `step` together in a fragment) — so the element itself is never torn down as the flow advances through reward reveal, wish input, etc. Passed the `audioRef` down into `PhotoAlbum` as a prop instead of it creating its own; `PhotoAlbum`'s existing Web Audio/beat-detection setup is otherwise unchanged, just reads from the passed-in ref.
+- Removed the `loop` attribute — per the user's "until the song ends" wording, it now plays through once instead of looping forever.
+- Verified live via a temporary Playwright script (autoplay force-enabled via a launch flag since headless Chromium blocks autoplay by default): confirmed `currentTime` was advancing while on the album page, then — after flipping to the last page and clicking through to the reward reveal — confirmed it's the *same* audio element, still not paused, with `currentTime` having kept advancing rather than resetting. Removed the debug script and the temporary Playwright dependency afterward, reverted the temp PIN/quiz-skip flags in `page.tsx`.
+- Verified: `tsc --noEmit` clean.
+
+**Current state relative to build order:**
+- No step-order change. Step 4 (music) behavior updated: plays continuously from album entry through the rest of the flow instead of stopping at the album boundary; no longer loops.
+
+**Unfinished / partial:**
+- Only tested with autoplay force-enabled in an automated browser — real-device autoplay-policy reliability (the existing known limitation, especially iOS Safari) is still unverified, unchanged from before.
+- Since the song no longer loops, if she lingers a long time on the album/reward/wish steps the song could finish before she reaches the letter pages — not addressed here since the user only asked for "until the song ends," not what happens after. Worth flagging if it comes up.
+- Same carried-over items as Entry 34 (real photos, real letter sentences, Formspree live-test, ticket image, hosting target).
+
+**Open questions for user (not blocking):**
+- Is it fine for the song to just stop (silently) once it reaches its end even if she's still on an earlier screen, or should something happen at that point? Not raised as blocking since it wasn't asked for.
+
+**Next step:**
+Real photos for the album, real sentences for the letter pages, live Formspree test, optional ticket image, and hosting target remain the open items.

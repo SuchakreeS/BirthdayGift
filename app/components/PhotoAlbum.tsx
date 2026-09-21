@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { PageFlip } from "page-flip";
 import YearPage, { SLOTS_PER_PAGE } from "./YearPage";
 
@@ -71,9 +71,17 @@ const MIN_ENERGY = 40;
 // manual flips just retrigger this same effect against the new page.
 const AUTO_FLIP_DELAY_MS = 4500;
 
-export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
+export default function PhotoAlbum({
+  audioRef,
+  onContinue,
+}: {
+  // The <audio> element lives in page.tsx, not here, so playback survives
+  // past this component unmounting (moving on to the reward reveal, etc.)
+  // instead of stopping when the album screen is left.
+  audioRef: RefObject<HTMLAudioElement | null>;
+  onContinue: () => void;
+}) {
   const bookRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const pageFlipRef = useRef<PageFlip | null>(null);
   const [animKeys, setAnimKeys] = useState<number[]>(() => PAGES.map(() => 0));
   const [beatCount, setBeatCount] = useState(0);
@@ -239,8 +247,6 @@ export default function PhotoAlbum({ onContinue }: { onContinue: () => void }) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10 animate-rise-in">
-      <audio ref={audioRef} src="/audio/two-is-better-than-one.mp3" loop />
-
       <p className="font-body text-xs uppercase tracking-widest text-ink-soft">
         placeholder photos — real ones swap in later
       </p>
