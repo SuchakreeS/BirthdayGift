@@ -85,10 +85,10 @@ export default function PinScreen({
 
       <div className="text-center">
         <h1 className="font-display text-3xl text-wine-deep tracking-wide">
-          For You
+          มันล็อคนี่นาาาา
         </h1>
         <p className="mt-2 font-body text-sm text-ink-soft">
-          Enter the 4-digit code to continue
+          ลองใส่รหัสผ่านดูนะ อ้วนรู้รหัสนี้แน่ๆ ไม่ยากคับ
         </p>
       </div>
 

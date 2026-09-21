@@ -1,49 +1,72 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import LandingScreen from "./components/LandingScreen";
 import PinScreen from "./components/PinScreen";
+import TrustCheck from "./components/TrustCheck";
 import QuizScreen from "./components/QuizScreen";
+import AlbumIntro from "./components/AlbumIntro";
+import AlbumReveal from "./components/AlbumReveal";
 import PhotoAlbum from "./components/PhotoAlbum";
 import RewardReveal from "./components/RewardReveal";
 import WishInput from "./components/WishInput";
 import SongContinues from "./components/SongContinues";
 import LetterPages from "./components/LetterPages";
+import MusicProvider from "./components/MusicProvider";
 
 export default function Home() {
+  const [entered, setEntered] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [trustChecked, setTrustChecked] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
+  const [albumRevealed, setAlbumRevealed] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
   const [albumDone, setAlbumDone] = useState(false);
   const [rewardDone, setRewardDone] = useState(false);
   const [wishDone, setWishDone] = useState(false);
   const [songMessageDone, setSongMessageDone] = useState(false);
 
-  // Lives here (not inside PhotoAlbum) so the element — and its playback —
-  // survives past the album screen instead of being torn down when that
-  // component unmounts. Starts playing once the album step begins (see
-  // PhotoAlbum) and just plays through to the end from there; no `loop`.
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  let step;
-  if (!unlocked) {
-    step = <PinScreen onUnlock={() => setUnlocked(true)} />;
-  } else if (!quizDone) {
-    step = <QuizScreen onComplete={() => setQuizDone(true)} />;
-  } else if (!albumDone) {
-    step = <PhotoAlbum audioRef={audioRef} onContinue={() => setAlbumDone(true)} />;
-  } else if (!rewardDone) {
-    step = <RewardReveal onContinue={() => setRewardDone(true)} />;
-  } else if (!wishDone) {
-    step = <WishInput onContinue={() => setWishDone(true)} />;
-  } else if (!songMessageDone) {
-    step = <SongContinues onContinue={() => setSongMessageDone(true)} />;
-  } else {
-    step = <LetterPages />;
+  if (!entered) {
+    return <LandingScreen onEnter={() => setEntered(true)} />;
   }
 
+  if (!unlocked) {
+    return <PinScreen onUnlock={() => setUnlocked(true)} />;
+  }
+
+  if (!trustChecked) {
+    return <TrustCheck onContinue={() => setTrustChecked(true)} />;
+  }
+
+  if (!quizDone) {
+    return <QuizScreen onComplete={() => setQuizDone(true)} />;
+  }
+
+  if (!introDone) {
+    return <AlbumIntro onContinue={() => setIntroDone(true)} />;
+  }
+
+  if (!albumRevealed) {
+    return <AlbumReveal onContinue={() => setAlbumRevealed(true)} />;
+  }
+
+  // MusicProvider wraps every step from here on (not just the album) and
+  // stays mounted across all of them — the song starts playing once she
+  // reaches the album and keeps going through reward/wish/song-continues/
+  // letters without restarting, since none of those steps unmount it.
   return (
-    <>
-      <audio ref={audioRef} src="/audio/two-is-better-than-one.mp3" />
-      {step}
-    </>
+    <MusicProvider>
+      {!albumDone && <PhotoAlbum onContinue={() => setAlbumDone(true)} />}
+      {albumDone && !rewardDone && (
+        <RewardReveal onContinue={() => setRewardDone(true)} />
+      )}
+      {albumDone && rewardDone && !wishDone && (
+        <WishInput onContinue={() => setWishDone(true)} />
+      )}
+      {albumDone && rewardDone && wishDone && !songMessageDone && (
+        <SongContinues onContinue={() => setSongMessageDone(true)} />
+      )}
+      {albumDone && rewardDone && wishDone && songMessageDone && <LetterPages />}
+    </MusicProvider>
   );
 }

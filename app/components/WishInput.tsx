@@ -8,7 +8,9 @@ const STAR_COUNT = 26;
 // How long the starfield/text plays before the warp transition kicks off.
 const SETTLE_DELAY_MS = 4200;
 // Duration of the warp-speed transition itself, before onContinue fires.
-const WARP_DURATION_MS = 650;
+// 0.75x speed (~1.33x the original 650ms) — matches the shared warp
+// transition's slowed-down pace (see useWarpTransition.tsx) for consistency.
+const WARP_DURATION_MS = 870;
 
 type TwinkleStar = {
   left: number;
@@ -193,7 +195,7 @@ export default function WishInput({ onContinue }: { onContinue: () => void }) {
           disabled={status === "sending"}
           className="rounded-md bg-wine px-4 py-2 font-body text-sm text-ivory disabled:opacity-60"
         >
-          {status === "sending" ? "กำลังส่ง..." : "ส่งพร"}
+          {status === "sending" ? "กำลังส่ง..." : "ขอพร"}
         </button>
         {status === "error" && (
           <p className="font-body text-xs text-wine-deep">
