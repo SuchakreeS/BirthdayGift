@@ -16,7 +16,7 @@ export default function TrustCheck({ onContinue }: { onContinue: () => void }) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 animate-rise-in">
-      <p className="max-w-sm text-center font-display text-2xl text-wine-deep">
+      <p className="max-w-sm text-center font-display text-xl text-wine-deep">
         แต่ เราจะแน่ใจได้ยังไงว่าเป็นเทอจริง
       </p>
       <p
